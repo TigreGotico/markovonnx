@@ -17,6 +17,7 @@ pip install -e ".[test]"    # + pytest
 
 | Document | Description |
 |----------|-------------|
+| [When to Use](guide.md) | Use cases, recommendations, when to avoid, alternatives |
 | [Getting Started](getting-started.md) | First steps: install, train, export, generate |
 | [Configuration](configuration.md) | `MarkovConfig` fields and environment variables |
 | [Tokenization](tokenization.md) | Character, word, and BPE tokenization modes |

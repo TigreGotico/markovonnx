@@ -21,6 +21,10 @@ uv run python examples/01_char_text_generation.py
 | 09 | `09_perplexity_comparison.py` | Perplexity comparison across model orders |
 | 10 | `10_language_identifier.py` | Language ID via perplexity ensemble (EN/FR/DE/ES/PT) |
 | 11 | `11_intent_classifier_benchmark.py` | Intent classification benchmark (5504 utterances, 11 classes) |
+| 12 | `12_pos_tagger.py` | POS tagging with supervised HMM Viterbi decoding |
+| 13 | `13_keyword_extraction.py` | Keyword extraction via inverse frequency surprise |
+| 14 | `14_sentence_segmentation.py` | Sentence boundary detection with char-level models |
+| 15 | `15_grapheme_to_phoneme.py` | G2P conversion with supervised HMM |
 
 ## Toy Datasets
 
