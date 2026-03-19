@@ -18,7 +18,10 @@ dependencies = [
 bpe = ["tokenizers"]
 viz = ["matplotlib"]
 quantize = ["onnxruntime-tools", "onnxconverter-common"]
-test = ["pytest", "pytest-cov"]
+test = ["pytest", "pytest-cov", "hypothesis"]
+
+[project.scripts]
+markovonnx = "markovonnx.cli:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "markovonnx.version.__version__" }

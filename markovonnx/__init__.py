@@ -1,5 +1,6 @@
 """markovonnx — Markov chains and HMMs with ONNX export/inference."""
 
+from markovonnx.archive import load_markov_archive, save_markov_archive
 from markovonnx.config import MarkovConfig
 from markovonnx.generate import generate_markov
 from markovonnx.hmm import HiddenMarkovModel
@@ -32,5 +33,7 @@ __all__ = [
     "MarkovONNXRuntime",
     "HMMONNXRuntime",
     "generate_markov",
+    "save_markov_archive",
+    "load_markov_archive",
     "__version__",
 ]

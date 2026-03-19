@@ -1,9 +1,9 @@
-"""N-gram Markov chain with sparse storage and dense export."""
+"""N-gram Markov chain with sparse storage, backoff, and dense export."""
 
 import math
 import random
 import time
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
 
@@ -11,22 +11,35 @@ from markovonnx.vocabulary import Vocabulary
 
 
 class MarkovChain:
-    """N-gram Markov chain.
+    """N-gram Markov chain with optional interpolated backoff.
 
     Stores counts in a dict-of-arrays to stay sparse, converting to a dense
     matrix only on export.  This keeps RAM reasonable for large vocabularies.
+
+    When *backoff* is enabled, lower-order models are trained alongside
+    the primary model.  During sampling and perplexity computation, if the
+    full-order context is unseen the model backs off to shorter contexts.
 
     Args:
         order: N-gram order (context length).
         vocab: :class:`Vocabulary` instance.
         smoothing: Laplace smoothing alpha.
+        backoff: If ``True``, train and use lower-order models as fallback.
     """
 
-    def __init__(self, order: int, vocab: Vocabulary, smoothing: float = 1e-5):
+    def __init__(
+        self,
+        order: int,
+        vocab: Vocabulary,
+        smoothing: float = 1e-5,
+        backoff: bool = False,
+    ):
         self.order = order
         self.vocab = vocab
         self.smoothing = smoothing
+        self.backoff = backoff
         self._counts: Dict[int, np.ndarray] = {}
+        self._lower: Optional["MarkovChain"] = None
 
     # -- Context encoding -----------------------------------------------------
 
@@ -61,6 +74,14 @@ class MarkovChain:
             f"{len(sequences):,} sequences in {elapsed:.2f}s  |  "
             f"unique contexts: {len(self._counts):,}"
         )
+        if self.backoff and self.order > 1:
+            self._lower = MarkovChain(
+                order=self.order - 1,
+                vocab=self.vocab,
+                smoothing=self.smoothing,
+                backoff=True,
+            )
+            self._lower.fit(sequences)
 
     def fit_streaming(
         self,
@@ -101,10 +122,29 @@ class MarkovChain:
         T /= row_sums
         return T
 
+    # -- Probability lookup with backoff --------------------------------------
+
+    def _get_probs(self, context: List) -> np.ndarray:
+        """Return smoothed probability vector for *context*, with backoff."""
+        V = self.vocab.size
+        ids = self.vocab.encode(context[-self.order :])
+        ci = self._ctx_idx(ids)
+        row = self._counts.get(ci, None)
+        if row is not None and row.sum() > 0:
+            return (row + self.smoothing) / (row.sum() + self.smoothing * V)
+        # Backoff to lower-order model
+        if self._lower is not None and len(context) > 1:
+            return self._lower._get_probs(context[1:])
+        # Uniform fallback
+        return np.full(V, 1.0 / V, dtype=np.float32)
+
     # -- Sampling -------------------------------------------------------------
 
     def sample(self, context: List, temperature: float = 1.0) -> object:
         """Sample the next token given a context.
+
+        Uses backoff to lower-order models when context is unseen
+        (if *backoff* was enabled during training).
 
         Args:
             context: Token sequence (at least *order* tokens).
@@ -114,36 +154,32 @@ class MarkovChain:
             A single token from the vocabulary.
         """
         V = self.vocab.size
-        ids = self.vocab.encode(context[-self.order :])
-        ci = self._ctx_idx(ids)
-        row = self._counts.get(ci, None)
-        if row is None or row.sum() == 0:
-            return self.vocab.id2tok[random.randint(1, V - 1)]
-        logits = np.log(row + self.smoothing)
+        probs = self._get_probs(context)
         if temperature != 1.0:
-            logits /= temperature
-        probs = np.exp(logits - logits.max())
-        probs /= probs.sum()
+            logits = np.log(probs + 1e-30) / temperature
+            probs = np.exp(logits - logits.max())
+            probs /= probs.sum()
         return self.vocab.id2tok[int(np.random.choice(V, p=probs))]
 
     # -- Perplexity -----------------------------------------------------------
 
     def perplexity(self, sequences: List[List]) -> float:
-        """Compute perplexity of the model over a list of token sequences."""
+        """Compute perplexity of the model over a list of token sequences.
+
+        Uses backoff for unseen contexts if enabled.
+        """
         total_log = 0.0
         total_n = 0
-        V = self.vocab.size
         for seq in sequences:
             ids = self.vocab.encode(seq)
             for i in range(len(ids) - self.order):
                 ctx = ids[i : i + self.order]
                 nxt = ids[i + self.order]
-                ci = self._ctx_idx(ctx)
-                row = self._counts.get(ci, None)
-                if row is not None and row.sum() > 0:
-                    p = (row[nxt] + self.smoothing) / (row.sum() + self.smoothing * V)
-                else:
-                    p = self.smoothing
+                # Use backoff-aware probability
+                probs = self._get_probs(
+                    self.vocab.decode(ctx)
+                )
+                p = float(probs[nxt])
                 total_log += math.log(max(p, 1e-30))
                 total_n += 1
         return math.exp(-total_log / max(total_n, 1))

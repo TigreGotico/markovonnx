@@ -60,3 +60,23 @@ class TestVocabulary:
         # Only first line "aaa" -> vocab has UNK + "a"
         assert "a" in vocab.tok2id
         assert "b" not in vocab.tok2id
+
+    def test_to_dict_from_dict_roundtrip(self) -> None:
+        vocab = Vocabulary(max_vocab=2)
+        vocab.build_from_sequences([["a", "a", "b", "b", "c"]])
+        data = vocab.to_dict()
+        restored = Vocabulary.from_dict(data)
+        assert restored.id2tok == vocab.id2tok
+        assert restored.tok2id == vocab.tok2id
+        assert restored.size == vocab.size
+        assert restored.max_vocab == vocab.max_vocab
+
+    def test_save_load_roundtrip(self) -> None:
+        vocab = Vocabulary()
+        vocab.build_from_sequences([["x", "y", "z"]])
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            path = f.name
+        vocab.save(path)
+        loaded = Vocabulary.load(path)
+        assert loaded.id2tok == vocab.id2tok
+        assert loaded.tok2id == vocab.tok2id

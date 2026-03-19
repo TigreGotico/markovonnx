@@ -1,6 +1,7 @@
 """ONNX Runtime wrappers for Markov chain and HMM inference."""
 
 import os
+import warnings
 from typing import List
 
 import numpy as np
@@ -8,6 +9,23 @@ import onnxruntime as ort
 
 from markovonnx.hmm import HiddenMarkovModel
 from markovonnx.vocabulary import Vocabulary
+
+
+def _available_providers() -> List[str]:
+    """Return ORT providers available on this machine, preferring CUDA."""
+    available = ort.get_available_providers()
+    preferred = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    return [p for p in preferred if p in available] or available
+
+
+def _make_session(onnx_path: str, providers: List[str] = None) -> ort.InferenceSession:
+    """Create an ORT session with sensible defaults."""
+    so = ort.SessionOptions()
+    so.intra_op_num_threads = int(os.cpu_count() or 1)
+    so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    if providers is None:
+        providers = _available_providers()
+    return ort.InferenceSession(onnx_path, sess_options=so, providers=providers)
 
 
 class MarkovONNXRuntime:
@@ -22,15 +40,37 @@ class MarkovONNXRuntime:
     def __init__(self, onnx_path: str, vocab: Vocabulary, order: int):
         self.vocab = vocab
         self.order = order
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = int(os.cpu_count() or 1)
-        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        self.sess = ort.InferenceSession(
-            onnx_path,
-            sess_options=so,
-            providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-        )
+        self.sess = _make_session(onnx_path)
         self.provider = self.sess.get_providers()[0]
+
+    @classmethod
+    def from_file(cls, onnx_path: str) -> "MarkovONNXRuntime":
+        """Load from an ONNX file, reconstructing vocab from embedded metadata.
+
+        The ONNX file must have been exported with :func:`export_markov_onnx`,
+        which embeds ``order``, ``vocab_size``, and ``vocab`` (first 500 tokens)
+        in the model's metadata.
+
+        Args:
+            onnx_path: Path to the ``.onnx`` file.
+
+        Returns:
+            A ready-to-use runtime instance.
+        """
+        import json
+        import onnx
+        model = onnx.load(onnx_path)
+        meta = {p.key: p.value for p in model.metadata_props}
+        order = int(meta["order"])
+        id2tok = json.loads(meta["vocab"])
+        vocab_size = int(meta["vocab_size"])
+        # Pad if the stored vocab was truncated
+        while len(id2tok) < vocab_size:
+            id2tok.append(f"<TOKEN_{len(id2tok)}>")
+        vocab = Vocabulary()
+        vocab.id2tok = id2tok
+        vocab.tok2id = {tok: i for i, tok in enumerate(id2tok)}
+        return cls(onnx_path, vocab, order)
 
     def predict_probs(self, context: List) -> np.ndarray:
         """Return the full probability vector over the vocabulary.
@@ -40,6 +80,24 @@ class MarkovONNXRuntime:
         """
         ids = np.array(self.vocab.encode(context[-self.order :]), dtype=np.int64)
         return self.sess.run(["probs"], {"input_ids": ids})[0]
+
+    def predict_probs_batch(self, contexts: List[List]) -> np.ndarray:
+        """Return probability vectors for a batch of contexts.
+
+        Args:
+            contexts: List of token sequences, each at least *order* tokens.
+
+        Returns:
+            Array of shape ``(len(contexts), vocab_size)``.
+        """
+        batch = np.array(
+            [self.vocab.encode(ctx[-self.order :]) for ctx in contexts],
+            dtype=np.int64,
+        )
+        return np.stack([
+            self.sess.run(["probs"], {"input_ids": row})[0]
+            for row in batch
+        ])
 
     def sample(self, context: List, temperature: float = 1.0) -> object:
         """Sample the next token with optional temperature scaling.
@@ -78,9 +136,7 @@ class HMMONNXRuntime:
 
     def __init__(self, onnx_path: str, hmm: HiddenMarkovModel):
         self.hmm = hmm
-        so = ort.SessionOptions()
-        so.intra_op_num_threads = int(os.cpu_count() or 1)
-        self.sess = ort.InferenceSession(onnx_path, sess_options=so)
+        self.sess = _make_session(onnx_path)
 
     def decode(self, obs_seq: List[str]) -> List[str]:
         """Decode an observation sequence via greedy forward pass.

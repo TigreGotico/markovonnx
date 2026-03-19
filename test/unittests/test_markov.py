@@ -97,3 +97,34 @@ class TestMarkovChain:
         # Sequence with tokens that create unseen contexts
         ppx = mc.perplexity([["<UNK>", "<UNK>", "<UNK>"]])
         assert ppx > 0
+
+    def test_backoff_trains_lower_order(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a", "b", "c"]] * 10
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=2, vocab=vocab, smoothing=1e-5, backoff=True)
+        mc.fit(seqs)
+        assert mc._lower is not None
+        assert mc._lower.order == 1
+        # order=1 doesn't create a lower model (order must be > 1)
+        assert mc._lower._lower is None
+
+    def test_backoff_sampling_unseen(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "a", "b"]] * 20
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=2, vocab=vocab, smoothing=1e-5, backoff=True)
+        mc.fit(seqs)
+        # Context ["<UNK>", "a"] is unseen at order=2, should backoff to order=1
+        token = mc.sample(["<UNK>", "a"])
+        assert token in vocab.tok2id
+
+    def test_get_probs_uniform_fallback(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b"]] * 5
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab, smoothing=1e-5, backoff=False)
+        mc.fit(seqs)
+        # Unseen context with no backoff -> uniform
+        probs = mc._get_probs(["<UNK>"])
+        assert abs(probs.sum() - 1.0) < 1e-5

@@ -41,7 +41,7 @@ def generate_markov(
     if mode in ("bpe", "subword"):
         if bpe_tokenizer is None:
             raise ValueError("bpe_tokenizer is required for BPE generation")
-        context = seed.split() if seed else []
+        context: List = list(bpe_tokenizer.encode_bpe(seed)) if seed else []
         result = list(context)
         for _ in range(length):
             nxt = ort_model.sample(context[-order:], temperature)

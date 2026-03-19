@@ -1,7 +1,9 @@
 """Symbol-to-integer vocabulary with optional max-size pruning."""
 
+import json
 from collections import Counter
-from typing import Callable, Dict, Iterator, List
+from pathlib import Path
+from typing import Callable, Dict, List
 
 
 class Vocabulary:
@@ -66,3 +68,32 @@ class Vocabulary:
     def size(self) -> int:
         """Total number of symbols (including ``<UNK>``)."""
         return len(self.id2tok)
+
+    # -- Serialization --------------------------------------------------------
+
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-compatible dict."""
+        return {
+            "max_vocab": self.max_vocab,
+            "id2tok": self.id2tok,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Vocabulary":
+        """Reconstruct from a dict produced by :meth:`to_dict`."""
+        vocab = cls(max_vocab=data.get("max_vocab", 0))
+        vocab.id2tok = data["id2tok"]
+        vocab.tok2id = {tok: i for i, tok in enumerate(vocab.id2tok)}
+        return vocab
+
+    def save(self, path: str) -> None:
+        """Save vocabulary to a JSON file."""
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False)
+
+    @classmethod
+    def load(cls, path: str) -> "Vocabulary":
+        """Load vocabulary from a JSON file."""
+        with open(path, "r", encoding="utf-8") as f:
+            return cls.from_dict(json.load(f))
