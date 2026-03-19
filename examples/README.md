@@ -20,6 +20,7 @@ uv run python examples/01_char_text_generation.py
 | 08 | `08_config_from_env.py` | Programmatic and environment variable configuration |
 | 09 | `09_perplexity_comparison.py` | Perplexity comparison across model orders |
 | 10 | `10_language_identifier.py` | Language ID via perplexity ensemble (EN/FR/DE/ES/PT) |
+| 11 | `11_intent_classifier_benchmark.py` | Intent classification benchmark (5504 utterances, 11 classes) |
 
 ## Toy Datasets
 
