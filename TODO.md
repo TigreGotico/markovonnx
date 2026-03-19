@@ -17,6 +17,6 @@
 - [x] Add Vocabulary serialization
 - [x] Add property-based tests (Hypothesis)
 - [x] Add integration test
-- [ ] Sparse ONNX export for very large models
-- [ ] Kneser-Ney smoothing
-- [ ] Full log-space HMM (log-semiring Baum-Welch)
+- [x] Sparse ONNX export for very large models
+- [x] Kneser-Ney smoothing
+- [x] Full log-space HMM (log-semiring Baum-Welch)
