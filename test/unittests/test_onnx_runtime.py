@@ -46,6 +46,13 @@ class TestMarkovONNXRuntime:
             token = rt.sample(["a"])
             assert token in vocab.tok2id
 
+    def test_sample_with_temperature(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path, vocab, order = _export_markov(tmpdir)
+            rt = MarkovONNXRuntime(path, vocab, order)
+            token = rt.sample(["a"], temperature=0.5)
+            assert token in vocab.tok2id
+
     def test_argmax_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             path, vocab, order = _export_markov(tmpdir)
@@ -70,3 +77,20 @@ class TestHMMONNXRuntime:
             rt = HMMONNXRuntime(path, hmm)
             states = rt.decode(["a", "b", "c"])
             assert len(states) == 3
+
+    def test_decode_without_state_vocab(self) -> None:
+        """HMM without state_vocab returns stringified state indices."""
+        vocab = Vocabulary()
+        vocab.build_from_sequences([["a", "b", "c"]])
+        hmm = HiddenMarkovModel(n_states=2, obs_vocab=vocab)
+        hmm.fit_unsupervised([["a", "b", "a", "b"]] * 10, n_iter=3)
+        assert hmm.state_vocab is None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = str(Path(tmpdir) / "hmm.onnx")
+            export_hmm_onnx(hmm, path)
+            rt = HMMONNXRuntime(path, hmm)
+            states = rt.decode(["a", "b", "c"])
+            assert len(states) == 3
+            # Should be stringified indices
+            for s in states:
+                assert s in ("0", "1")

@@ -1,5 +1,8 @@
 """Tests for markovonnx.vocabulary."""
 
+import tempfile
+
+from markovonnx.tokenizers import char_tokenize
 from markovonnx.vocabulary import Vocabulary
 
 
@@ -35,3 +38,25 @@ class TestVocabulary:
         assert vocab.id2tok[0] == "<UNK>"
         assert vocab.id2tok[1] == "common"
         assert vocab.id2tok[2] == "rare"
+
+    def test_build_streaming(self) -> None:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("hello world\nfoo bar\n")
+            path = f.name
+        vocab = Vocabulary()
+        vocab.build_streaming(path, tokenize_fn=char_tokenize)
+        assert vocab.size > 1  # at least UNK + some chars
+        assert "<UNK>" in vocab.tok2id
+        # Verify all characters are present
+        for c in "helo wrdfobar":
+            assert c in vocab.tok2id, f"'{c}' not in vocabulary"
+
+    def test_build_streaming_with_max_lines(self) -> None:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("aaa\nbbb\nccc\n")
+            path = f.name
+        vocab = Vocabulary()
+        vocab.build_streaming(path, tokenize_fn=char_tokenize, max_lines=1)
+        # Only first line "aaa" -> vocab has UNK + "a"
+        assert "a" in vocab.tok2id
+        assert "b" not in vocab.tok2id

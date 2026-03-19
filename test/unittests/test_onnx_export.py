@@ -7,7 +7,7 @@ import onnx
 
 from markovonnx.hmm import HiddenMarkovModel
 from markovonnx.markov import MarkovChain
-from markovonnx.onnx_export import export_hmm_onnx, export_markov_onnx
+from markovonnx.onnx_export import export_hmm_onnx, export_markov_onnx, quantize_model
 from markovonnx.vocabulary import Vocabulary
 
 
@@ -50,6 +50,13 @@ class TestExportMarkov:
             assert meta["model_type"] == "markov_chain"
             assert meta["order"] == "1"
 
+    def test_creates_parent_dirs(self) -> None:
+        mc = _trained_markov()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = str(Path(tmpdir) / "sub" / "dir" / "test.onnx")
+            export_markov_onnx(mc, path)
+            assert Path(path).exists()
+
 
 class TestExportHMM:
     def test_creates_valid_onnx(self) -> None:
@@ -60,3 +67,22 @@ class TestExportHMM:
             assert Path(path).exists()
             model = onnx.load(path)
             onnx.checker.check_model(model)
+
+
+class TestQuantizeModel:
+    def test_quantize_success(self) -> None:
+        mc = _trained_markov()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fp_path = str(Path(tmpdir) / "full.onnx")
+            q_path = str(Path(tmpdir) / "int8.onnx")
+            export_markov_onnx(mc, fp_path)
+            result = quantize_model(fp_path, q_path)
+            assert result == q_path
+            assert Path(q_path).exists()
+            # Quantized model should be loadable
+            model = onnx.load(q_path)
+            assert model is not None
+
+    def test_quantize_failure_returns_none(self) -> None:
+        result = quantize_model("/nonexistent/model.onnx", "/tmp/out.onnx")
+        assert result is None

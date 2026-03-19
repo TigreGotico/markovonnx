@@ -1,6 +1,9 @@
 """Tests for markovonnx.markov."""
 
+import tempfile
+
 from markovonnx.markov import MarkovChain
+from markovonnx.tokenizers import char_tokenize
 from markovonnx.vocabulary import Vocabulary
 
 
@@ -62,3 +65,35 @@ class TestMarkovChain:
         T = mc.dense_matrix()
         V = vocab.size
         assert T.shape == (V ** 2, V)
+
+    def test_fit_streaming(self) -> None:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            for _ in range(50):
+                f.write("abcabc\n")
+            path = f.name
+        vocab = Vocabulary()
+        vocab.build_streaming(path, tokenize_fn=char_tokenize)
+        mc = MarkovChain(order=1, vocab=vocab, smoothing=1e-5)
+        mc.fit_streaming(path, tokenize_fn=char_tokenize)
+        assert len(mc._counts) > 0
+        # Verify sampling works
+        token = mc.sample(["a"])
+        assert token in vocab.tok2id
+
+    def test_sample_unseen_context(self) -> None:
+        mc = _build_chain()
+        # "<UNK>" context has no counts -> should return random token
+        token = mc.sample(["<UNK>"])
+        assert token in mc.vocab.tok2id
+
+    def test_sample_with_temperature(self) -> None:
+        mc = _build_chain()
+        # Just verify it runs with temperature=1.0 (no rescaling path)
+        token = mc.sample(["a"], temperature=1.0)
+        assert token in mc.vocab.tok2id
+
+    def test_perplexity_unseen_context(self) -> None:
+        mc = _build_chain()
+        # Sequence with tokens that create unseen contexts
+        ppx = mc.perplexity([["<UNK>", "<UNK>", "<UNK>"]])
+        assert ppx > 0
