@@ -85,8 +85,16 @@ class MarkovONNXRuntime:
 
         Args:
             context: Token sequence (at least *order* tokens).
+
+        Raises:
+            ValueError: If context has fewer tokens than *order*.
         """
-        ids = np.array(self.vocab.encode(context[-self.order :]), dtype=np.int64)
+        ctx = context[-self.order :]
+        if len(ctx) < self.order:
+            raise ValueError(
+                f"Context has {len(ctx)} tokens but model requires {self.order}"
+            )
+        ids = np.array(self.vocab.encode(ctx), dtype=np.int64)
         return self.sess.run(["probs"], {"input_ids": ids})[0]
 
     def predict_probs_batch(self, contexts: List[List]) -> np.ndarray:

@@ -66,12 +66,16 @@ class SubwordTokenizer:
         return [self.vocab.get(t, self.unk_id) for t in tokens]
 
     def decode_bpe(self, ids: List[int]) -> str:
-        """Decode a list of BPE token IDs back to a string."""
-        tokens = [self.id_to_token[i] for i in ids]
+        """Decode a list of BPE token IDs back to a string.
+
+        Unknown IDs are replaced with the unknown token.
+        """
+        unk = self.unk_token
+        tokens = [self.id_to_token.get(i, unk) for i in ids]
         s = "".join(tokens)
         try:
             return s.encode("latin-1").decode("utf-8")
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, UnicodeEncodeError):
             return s
 
     def apply_bpe(self, tokens: List[str]) -> List[str]:

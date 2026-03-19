@@ -8,9 +8,17 @@ from markovonnx.vocabulary import Vocabulary
 
 
 def _logsumexp(a: np.ndarray, axis: int = -1, keepdims: bool = False) -> np.ndarray:
-    """Numerically stable log-sum-exp (like scipy.special.logsumexp)."""
+    """Numerically stable log-sum-exp (like scipy.special.logsumexp).
+
+    Returns ``-inf`` when all inputs are ``-inf`` (empty sum).
+    """
     a_max = np.max(a, axis=axis, keepdims=True)
-    out = a_max + np.log(np.sum(np.exp(a - a_max), axis=axis, keepdims=True))
+    # Guard: if a_max is -inf, all values are -inf → result is -inf
+    with np.errstate(invalid="ignore"):
+        exp_sum = np.sum(np.exp(a - a_max), axis=axis, keepdims=True)
+        out = a_max + np.log(exp_sum)
+    # Replace NaN (from -inf + log(0)) with -inf
+    out = np.where(np.isfinite(a_max), out, a_max)
     if not keepdims:
         out = np.squeeze(out, axis=axis)
     return out

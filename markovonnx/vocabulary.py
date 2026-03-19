@@ -61,8 +61,9 @@ class Vocabulary:
         return [self.tok2id.get(t, unk) for t in tokens]
 
     def decode(self, ids: List[int]) -> List:
-        """Map integer IDs back to tokens."""
-        return [self.id2tok[i] for i in ids]
+        """Map integer IDs back to tokens. Out-of-range IDs return ``<UNK>``."""
+        n = len(self.id2tok)
+        return [self.id2tok[i] if 0 <= i < n else self.UNK for i in ids]
 
     @property
     def size(self) -> int:

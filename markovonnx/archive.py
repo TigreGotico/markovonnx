@@ -89,7 +89,11 @@ def load_markov_archive(archive_path: str) -> dict:
     # Lazy imports to avoid circular dependency
     from markovonnx.onnx_runtime import HMMONNXRuntime, MarkovONNXRuntime
 
+    import atexit
+    import shutil
+
     tmpdir = tempfile.mkdtemp(prefix="markovonnx_")
+    atexit.register(shutil.rmtree, tmpdir, True)  # clean up on exit
 
     with zipfile.ZipFile(archive_path, "r") as zf:
         zf.extractall(tmpdir)

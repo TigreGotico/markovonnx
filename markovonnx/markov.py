@@ -160,6 +160,7 @@ class MarkovChain:
                 if ci < total_rows:
                     T[ci] += row
             row_sums = T.sum(axis=1, keepdims=True)
+            row_sums = np.maximum(row_sums, 1e-30)  # prevent division by zero
             T /= row_sums
         return T
 
@@ -202,6 +203,8 @@ class MarkovChain:
         V = self.vocab.size
         d = self._kn_discount
         total = row.sum()
+        if total == 0:
+            return np.full(V, 1.0 / V, dtype=np.float32)
         n_positive = float((row > 0).sum())
         lam = d * n_positive / total
         discounted = np.maximum(row - d, 0.0) / total
