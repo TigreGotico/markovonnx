@@ -19,6 +19,7 @@ uv run python examples/01_char_text_generation.py
 | 07 | `07_quantization_benchmark.py` | INT8 quantization and Python vs ONNX benchmarks |
 | 08 | `08_config_from_env.py` | Programmatic and environment variable configuration |
 | 09 | `09_perplexity_comparison.py` | Perplexity comparison across model orders |
+| 10 | `10_language_identifier.py` | Language ID via perplexity ensemble (EN/FR/DE/ES/PT) |
 
 ## Toy Datasets
 
@@ -28,3 +29,8 @@ uv run python examples/01_char_text_generation.py
 | `data/weather_tagged.txt` | 20 pipe-separated activity\|weather sequences (supervised HMM) |
 | `data/dna_sequences.txt` | 20 DNA strings of A/C/G/T (unsupervised HMM) |
 | `data/music_chords.txt` | 20 chord progressions using C/Am/F/G/Dm/Em (word model) |
+| `data/lang_train_en.txt` | 25 English sentences (language ID training) |
+| `data/lang_train_fr.txt` | 25 French sentences (language ID training) |
+| `data/lang_train_de.txt` | 25 German sentences (language ID training) |
+| `data/lang_train_es.txt` | 25 Spanish sentences (language ID training) |
+| `data/lang_train_pt.txt` | 25 Portuguese sentences (language ID training) |
