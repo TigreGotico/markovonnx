@@ -11,6 +11,7 @@ Plugins:
     - ``MarkovSegmenter`` — Sentence segmentation (opm.segmentation)
     - ``MarkovG2P`` — Grapheme-to-phoneme (opm.g2p)
     - ``MarkovChatEngine`` — Persona chat agent (opm.agents.chat)
+    - ``MarkovUtteranceTransformer`` — Domain LM rescoring/correction (opm.transformer.text)
 """
 
 import math
@@ -39,6 +40,7 @@ from ovos_plugin_manager.templates.pipeline import (
 )
 from ovos_plugin_manager.templates.postag import PosTagger
 from ovos_plugin_manager.templates.segmentation import Segmenter
+from ovos_plugin_manager.templates.transformers import UtteranceTransformer
 from ovos_utils.fakebus import FakeBus
 from ovos_utils.lang import standardize_lang_tag
 from ovos_utils.log import LOG
@@ -807,3 +809,221 @@ class MarkovChatEngine(ChatEngine):
             nxt = self._model.sample(context[-self.order:], self.temperature)
             context = (context + [nxt])[-self.order:]
             yield nxt if self.mode == "char" else " " + nxt
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Utterance Transformer — Domain LM rescoring (opm.transformer.text)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class MarkovUtteranceTransformer(UtteranceTransformer):
+    """Rescore/correct STT utterances using a domain language model.
+
+    Builds a word-level Markov chain from all registered intent samples.
+    On each utterance:
+
+    **Approach A (N-best rescoring)**: If the utterance list contains
+    multiple STT hypotheses, reorders them by combined acoustic + LM score.
+
+    **Approach B (word correction)**: For each word in the top utterance,
+    checks if replacing it with a phonetically similar word from the
+    domain vocab reduces perplexity. Only substitutes on significant drop.
+
+    Configuration:
+
+    .. code-block:: json
+
+        {
+            "utterance_transformers": {
+                "ovos-markov-utterance-transformer": {
+                    "active": true,
+                    "alpha": 0.4,
+                    "correction_threshold": 0.5,
+                    "order": 2,
+                    "kneser_ney": true
+                }
+            }
+        }
+
+    ``alpha`` controls the LM weight in N-best rescoring:
+    ``final = (1-alpha) * position_score + alpha / ppx``
+    """
+
+    def __init__(self, name: str = "ovos-markov-utterance-transformer",
+                 priority: int = 5, config: Optional[Dict] = None):
+        super().__init__(name, priority, config)
+        self.alpha: float = self.config.get("alpha", 0.4)
+        self.correction_threshold: float = self.config.get("correction_threshold", 0.5)
+        self.order: int = self.config.get("order", 2)
+        self.kneser_ney: bool = self.config.get("kneser_ney", True)
+        self._model: Optional[MarkovChain] = None
+        self._vocab: Optional[Vocabulary] = None
+        self._domain_words: Set[str] = set()
+        self._all_samples: List[List[str]] = []
+
+    def initialize(self) -> None:
+        """Register bus handlers to collect intent samples for the domain LM."""
+        if self.bus is None:
+            return
+        self.bus.on("padatious:register_intent", self._handle_register)
+        self.bus.on("register_vocab", self._handle_vocab)
+        self.bus.on("mycroft.skills.trained", self._rebuild_model)
+
+    def _handle_register(self, message) -> None:
+        """Collect intent samples for domain LM training."""
+        samples = message.data.get("samples")
+        file_name = message.data.get("file_name")
+        if not samples and file_name:
+            try:
+                with open(file_name) as f:
+                    samples = [line.strip() for line in f.readlines()]
+            except (OSError, IOError):
+                return
+        if samples:
+            for s in samples:
+                tokens = word_tokenize(s.lower().strip())
+                if tokens:
+                    self._all_samples.append(tokens)
+                    self._domain_words.update(tokens)
+
+    def _handle_vocab(self, message) -> None:
+        """Collect vocabulary words from Adapt registrations."""
+        entity = message.data.get("entity_value", "")
+        if entity:
+            words = word_tokenize(entity.lower())
+            self._domain_words.update(words)
+
+    def _rebuild_model(self, message=None) -> None:
+        """Rebuild domain LM from accumulated samples."""
+        if not self._all_samples:
+            return
+        self._vocab = Vocabulary()
+        self._vocab.build_from_sequences(self._all_samples)
+        self._model = MarkovChain(
+            order=self.order, vocab=self._vocab,
+            smoothing=1e-5, kneser_ney=self.kneser_ney, backoff=True,
+        )
+        self._model.fit(self._all_samples)
+        LOG.info(
+            f"MarkovUtteranceTransformer rebuilt: {len(self._all_samples)} samples, "
+            f"vocab={self._vocab.size}, domain_words={len(self._domain_words)}"
+        )
+
+    def transform(self, utterances: List[str],
+                  context: Optional[Dict] = None) -> Tuple[List[str], Dict]:
+        """Rescore and optionally correct utterances using domain LM.
+
+        Args:
+            utterances: List of STT hypotheses (first = best acoustic).
+            context: Message context.
+
+        Returns:
+            Tuple of (reordered/corrected utterances, additional context).
+        """
+        context = context or {}
+        if not self._model or not self._vocab or not utterances:
+            return utterances, {}
+
+        # === Approach A: N-best rescoring ===
+        if len(utterances) > 1:
+            scored = []
+            for i, utt in enumerate(utterances):
+                tokens = word_tokenize(utt.lower())
+                if len(tokens) < self.order:
+                    scored.append((utt, 0.0))
+                    continue
+                ppx = self._model.perplexity([tokens])
+                # Position bonus: first hypothesis gets slight boost
+                position_score = 1.0 / (1 + i)
+                lm_score = 1.0 / max(ppx, 1e-10)
+                combined = (1 - self.alpha) * position_score + self.alpha * lm_score
+                scored.append((utt, combined))
+
+            scored.sort(key=lambda x: -x[1])
+            reordered = [utt for utt, _ in scored]
+
+            if reordered[0] != utterances[0]:
+                LOG.debug(
+                    f"MarkovUTT rescore: '{utterances[0]}' → '{reordered[0]}'"
+                )
+
+            return reordered, {"markov_rescored": True}
+
+        # === Approach B: Word-level correction (single hypothesis) ===
+        utt = utterances[0]
+        tokens = word_tokenize(utt.lower())
+        if len(tokens) < self.order:
+            return utterances, {}
+
+        original_ppx = self._model.perplexity([tokens])
+        corrected_tokens = list(tokens)
+        made_correction = False
+
+        for i, tok in enumerate(tokens):
+            if tok in self._domain_words:
+                continue  # already a domain word, skip
+
+            # Find phonetically similar domain words (edit distance <= 2)
+            candidates = self._find_similar(tok)
+            if not candidates:
+                continue
+
+            best_candidate = None
+            best_ppx = original_ppx
+
+            for candidate in candidates:
+                trial = list(corrected_tokens)
+                trial[i] = candidate
+                trial_ppx = self._model.perplexity([trial])
+                if trial_ppx < best_ppx * self.correction_threshold:
+                    best_ppx = trial_ppx
+                    best_candidate = candidate
+
+            if best_candidate is not None:
+                LOG.debug(
+                    f"MarkovUTT correct: '{corrected_tokens[i]}' → '{best_candidate}' "
+                    f"(ppx {original_ppx:.1f} → {best_ppx:.1f})"
+                )
+                corrected_tokens[i] = best_candidate
+                made_correction = True
+
+        if made_correction:
+            corrected = " ".join(corrected_tokens)
+            return [corrected] + utterances, {"markov_corrected": True}
+
+        return utterances, {}
+
+    def _find_similar(self, word: str, max_dist: int = 2) -> List[str]:
+        """Find domain words within edit distance *max_dist* of *word*."""
+        results = []
+        for dw in self._domain_words:
+            if abs(len(dw) - len(word)) > max_dist:
+                continue
+            if self._edit_distance(word, dw) <= max_dist:
+                results.append(dw)
+        return results
+
+    @staticmethod
+    def _edit_distance(a: str, b: str) -> int:
+        """Levenshtein edit distance."""
+        if len(a) < len(b):
+            return MarkovUtteranceTransformer._edit_distance(b, a)
+        if len(b) == 0:
+            return len(a)
+        prev = list(range(len(b) + 1))
+        for i, ca in enumerate(a):
+            curr = [i + 1]
+            for j, cb in enumerate(b):
+                curr.append(min(
+                    prev[j + 1] + 1,
+                    curr[j] + 1,
+                    prev[j] + (0 if ca == cb else 1),
+                ))
+            prev = curr
+        return prev[len(b)]
+
+    def default_shutdown(self) -> None:
+        """Remove bus handlers."""
+        if self.bus:
+            self.bus.remove("padatious:register_intent", self._handle_register)
+            self.bus.remove("register_vocab", self._handle_vocab)
+            self.bus.remove("mycroft.skills.trained", self._rebuild_model)

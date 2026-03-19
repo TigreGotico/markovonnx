@@ -15,7 +15,7 @@ In an era of billion-parameter transformers, why build a Markov chain library?
 - **Interpretable decisions** — perplexity scores are transparent, not black-box embeddings
 - **5-50 training examples** — useful accuracy with tiny datasets where neural models can't even overfit
 
-The key insight: **perplexity-as-classifier**. Train one Markov chain per class, classify by lowest perplexity. This one pattern handles language detection (100%), code language detection (100%), spam filtering (100%), intent classification (73%), authorship attribution, anomaly detection, and audio event classification — all with the same simple mechanism.
+The key insight: **perplexity-as-classifier**. Train one Markov chain per class, classify by lowest perplexity. This one pattern handles language detection, spam filtering, intent classification, authorship attribution, anomaly detection, and audio event classification — all with the same simple mechanism.
 
 markovonnx makes this pattern first-class: train in Python, export to ONNX (dense or sparse), run anywhere.
 
@@ -109,8 +109,7 @@ This project was built entirely by an AI agent with human oversight.
 - **Architecture decisions** were human-approved before implementation (plan mode review)
 - **Feature lists** were proposed by the AI, reviewed and approved by the human before building
 - **Every commit** was staged locally — the human controls all `git push` operations
-- **No code was pushed without human review** — the AI commits locally, the human pushes
-- **Bug fixes and improvements** were guided by human feedback ("fix all issues", "more coverage", etc.)
+- **Bug fixes and improvements** were guided by human feedback
 
 ### What the AI Did
 
@@ -124,10 +123,10 @@ This project was built entirely by an AI agent with human oversight.
 
 ### What the Human Did
 
+- Provided the original notebook with the core algorithms
 - Directed the overall vision and feature priorities
 - Reviewed and approved plans before implementation
-- Made final decisions on architecture (e.g., "add all OVOS integrations to a single opm.py")
-- Provided the original notebook with the core algorithms
+- Made final decisions on architecture
 - Controls publishing, pushing, and deployment
 
 Every AI-generated commit includes a `AI-Generated Change` footer with the model name, intent, impact, and verification method.

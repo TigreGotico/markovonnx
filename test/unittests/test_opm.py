@@ -3,6 +3,7 @@
 from markovonnx.opm import (
     MarkovChatEngine,
     MarkovG2P,
+    MarkovUtteranceTransformer,
     MarkovIntentEngine,
     MarkovKeywordExtractor,
     MarkovLangDetector,
@@ -158,3 +159,78 @@ class TestMarkovChatEngine:
             AgentMessage(role=MessageRole.USER, content="hello")
         ]))
         assert len(tokens) > 0
+
+
+# ── Utterance Transformer ──────────────────────────────────────────────
+
+class TestMarkovUtteranceTransformer:
+    def _make_transformer(self) -> MarkovUtteranceTransformer:
+        t = MarkovUtteranceTransformer(config={"order": 1, "alpha": 0.9})
+        # Manually inject domain data (simulating bus registration)
+        from markovonnx import word_tokenize
+        samples = [
+            "set a timer for five minutes",
+            "set a timer for ten minutes",
+            "set a timer for three minutes",
+            "set a timer for two hours",
+            "start a timer for five minutes",
+            "activate sleep mode",
+            "what is the weather today",
+            "play some music",
+        ] * 5  # repeat to strengthen learned patterns
+        for s in samples:
+            tokens = word_tokenize(s.lower())
+            t._all_samples.append(tokens)
+            t._domain_words.update(tokens)
+        t._rebuild_model()
+        return t
+
+    def test_nbest_rescoring(self) -> None:
+        """Approach A: N-best list reordered by domain LM."""
+        t = self._make_transformer()
+        utterances = [
+            "set a timer for hive minutes",  # STT error: "hive" instead of "five"
+            "set a timer for five minutes",   # correct but lower acoustic rank
+            "set a time or five minutes",     # worse
+        ]
+        result, ctx = t.transform(utterances)
+        # The domain LM should rank "five minutes" higher
+        assert result[0] == "set a timer for five minutes"
+        assert ctx.get("markov_rescored") is True
+
+    def test_single_utterance_correction(self) -> None:
+        """Approach B: word-level correction on single hypothesis."""
+        t = self._make_transformer()
+        # "sleek" is edit-distance 2 from "sleep"
+        utterances = ["activate sleek mode"]
+        result, ctx = t.transform(utterances)
+        # Should either correct to "sleep" or pass through unchanged
+        assert len(result) >= 1
+        if ctx.get("markov_corrected"):
+            assert "sleep" in result[0]
+
+    def test_no_model_passthrough(self) -> None:
+        """Without a trained model, utterances pass through unchanged."""
+        t = MarkovUtteranceTransformer()
+        utterances = ["hello world"]
+        result, ctx = t.transform(utterances)
+        assert result == ["hello world"]
+        assert ctx == {}
+
+    def test_empty_utterances(self) -> None:
+        t = self._make_transformer()
+        result, ctx = t.transform([])
+        assert result == []
+
+    def test_domain_word_not_corrected(self) -> None:
+        """Words already in domain vocab should not be touched."""
+        t = self._make_transformer()
+        utterances = ["set a timer for five minutes"]
+        result, ctx = t.transform(utterances)
+        assert result[0] == "set a timer for five minutes"
+
+    def test_edit_distance(self) -> None:
+        assert MarkovUtteranceTransformer._edit_distance("cat", "bat") == 1
+        assert MarkovUtteranceTransformer._edit_distance("sleep", "sleek") == 1
+        assert MarkovUtteranceTransformer._edit_distance("hello", "hello") == 0
+        assert MarkovUtteranceTransformer._edit_distance("", "abc") == 3

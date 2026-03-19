@@ -50,6 +50,9 @@ ovos-markov-g2p = "markovonnx.opm:MarkovG2P"
 [project.entry-points."opm.agents.chat"]
 ovos-markov-chat = "markovonnx.opm:MarkovChatEngine"
 
+[project.entry-points."opm.transformer.text"]
+ovos-markov-utterance-transformer = "markovonnx.opm:MarkovUtteranceTransformer"
+
 [tool.setuptools.dynamic]
 version = { attr = "markovonnx.version.__version__" }
 
