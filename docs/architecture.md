@@ -68,6 +68,34 @@ obs_id [1], alpha_in [n_states]
 
 For full-sequence decoding, `HMMONNXRuntime.decode()` (`onnx_runtime.py:85`) loops over observations, feeding `alpha_out` back as `alpha_in`.
 
+## Sparse Markov Chain ONNX Graph
+
+For large vocabularies, `export_markov_sparse_onnx` stores only observed rows:
+
+```
+input_ids [order]
+    │
+    ├── Mul + ReduceSum ──→ index (context row index)
+    │
+    ├── Equal(keys, index) ──→ match_bool [n_sparse]
+    │
+    ├── Cast + ReduceMax ──→ has_match (bool scalar)
+    │
+    ├── ArgMax(match_int) ──→ pos_found
+    │
+    ├── Where(has_match, pos_found, fallback_idx) ──→ pos
+    │
+    ├── Gather(sparse_table, pos) + Squeeze ──→ probs [V]
+    │
+    └── ArgMax ──→ next_id [1]
+```
+
+**Weights stored:**
+- `sparse_table`: `[n_sparse + 1, V]` — observed rows + uniform fallback
+- `keys`: `[n_sparse]` — context indices for lookup
+- `powers`: `[order]` — base-V encoding
+- `fallback_idx`: `[1]` — index of uniform row
+
 ## Module Dependency Graph
 
 ```
@@ -79,6 +107,8 @@ hmm  ──→ vocabulary
 onnx_export  ──→ markov, hmm
 onnx_runtime  ──→ vocabulary, hmm
 generate  ──→ onnx_runtime, tokenizers
+archive  ──→ onnx_export, onnx_runtime, vocabulary
+cli  ──→ archive, markov, tokenizers, vocabulary
 ```
 
 ## ONNX Opset and IR Version

@@ -14,6 +14,17 @@ MarkovONNXRuntime(onnx_path: str, vocab: Vocabulary, order: int)
 
 Loads an ONNX session with automatic provider selection (CUDA if available, else CPU). Sets `intra_op_num_threads` to CPU count and enables all graph optimisations.
 
+### Alternative Constructor
+
+#### `MarkovONNXRuntime.from_file(onnx_path)` — `onnx_runtime.py:47`
+
+Load from an ONNX file without providing vocab/order separately. Reconstructs the vocabulary from metadata embedded in the ONNX file.
+
+```python
+rt = MarkovONNXRuntime.from_file("model.onnx")
+print(rt.order, rt.vocab.size)
+```
+
 ### Methods
 
 #### `predict_probs(context) -> np.ndarray` — `onnx_runtime.py:35`
@@ -25,9 +36,18 @@ probs = rt.predict_probs(["t", "h"])  # shape: (vocab_size,)
 print(probs.sum())  # ~1.0
 ```
 
-The context is truncated to the last `order` tokens automatically.
+The context is truncated to the last `order` tokens automatically. Raises `ValueError` if context has fewer tokens than `order`.
 
-#### `sample(context, temperature=1.0) -> token` — `onnx_runtime.py:44`
+#### `predict_probs_batch(contexts) -> np.ndarray` — `onnx_runtime.py:99`
+
+Process multiple contexts in one call. Returns shape `(N, vocab_size)`.
+
+```python
+batch = rt.predict_probs_batch([["t", "h"], ["h", "e"]])
+print(batch.shape)  # (2, vocab_size)
+```
+
+#### `sample(context, temperature=1.0) -> token` — `onnx_runtime.py:113`
 
 Samples the next token probabilistically.
 

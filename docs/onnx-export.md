@@ -77,17 +77,44 @@ result = quantize_model("markov.onnx", "markov_int8.onnx")
 
 Typical compression: ~75% size reduction (e.g., 130 MB → 33 MB).
 
+## Sparse Export
+
+### `export_markov_sparse_onnx(mc, path)` — `onnx_export.py:82`
+
+Exports a Markov chain using a sparse lookup table instead of the full dense matrix. Only stores rows with observed counts, plus a uniform fallback row.
+
+```python
+from markovonnx import MarkovChain, export_markov_sparse_onnx
+
+export_markov_sparse_onnx(mc, "sparse_model.onnx")
+```
+
+**When to use**: When `V^order × V × 4` bytes exceeds available RAM or you want a smaller model file. For a model with 1000 unique contexts out of 100,000 possible, the sparse export stores ~1% of the data.
+
+**How it works**: The ONNX graph computes the context index, then searches a key array via brute-force `Equal` scan. If found, looks up the corresponding row in the sparse table; otherwise returns a uniform distribution.
+
+**Trade-off**: Sparse models are smaller but have O(N) key lookup instead of O(1) gather. For >100K sparse rows, dense may be faster at inference time.
+
+**Same I/O as dense export**:
+
+| Direction | Name | Type | Shape |
+|-----------|------|------|-------|
+| Input | `input_ids` | INT64 | `[order]` |
+| Output | `probs` | FLOAT | `[vocab_size]` |
+| Output | `next_id` | INT64 | `[1]` |
+
 ## Metadata
 
-Both export functions embed metadata in the ONNX model's `metadata_props`:
+All export functions embed metadata in the ONNX model's `metadata_props`:
 
-| Key | Markov | HMM |
-|-----|--------|-----|
-| `model_type` | `"markov_chain"` | `"hmm"` |
-| `order` | N-gram order | — |
-| `vocab_size` | Vocabulary size | — |
-| `vocab` | First 500 tokens (JSON) | — |
-| `n_states` | — | Number of hidden states |
+| Key | Dense | Sparse | HMM |
+|-----|-------|--------|-----|
+| `model_type` | `"markov_chain"` | `"markov_chain_sparse"` | `"hmm"` |
+| `order` | Yes | Yes | — |
+| `vocab_size` | Yes | Yes | — |
+| `vocab` | Full token list (JSON) | Full token list (JSON) | — |
+| `n_sparse_rows` | — | Number of stored rows | — |
+| `n_states` | — | — | Yes |
 
 Access metadata after loading:
 

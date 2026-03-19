@@ -105,3 +105,36 @@ if result:
 ```
 
 Typically achieves ~75% file size reduction with minimal accuracy loss.
+
+## Kneser-Ney Smoothing + Backoff
+
+For best accuracy on small datasets:
+
+```python
+mc = MarkovChain(order=2, vocab=vocab, kneser_ney=True, backoff=True)
+mc.fit(corpus)
+```
+
+Kneser-Ney typically gives 10-15% better accuracy than Laplace. Backoff falls back to shorter contexts for unseen n-grams.
+
+## Save / Load Archives
+
+Bundle a trained model into a single portable file:
+
+```python
+from markovonnx import save_markov_archive, load_markov_archive
+
+save_markov_archive(mc, "model.markov")
+
+loaded = load_markov_archive("model.markov")
+rt = loaded["runtime"]
+text = generate_markov(rt, "the", length=50, mode="char", order=2)
+```
+
+## CLI
+
+```bash
+markovonnx train corpus.txt -o model.markov --order 3 --backoff
+markovonnx generate model.markov --seed "the" --length 100
+markovonnx info model.markov
+```

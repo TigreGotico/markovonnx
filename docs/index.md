@@ -23,9 +23,11 @@ pip install -e ".[test]"    # + pytest
 | [Vocabulary](vocabulary.md) | `Vocabulary` class: building, encoding, decoding |
 | [Markov Chains](markov-chains.md) | `MarkovChain` training, sampling, perplexity |
 | [Hidden Markov Models](hmm.md) | `HiddenMarkovModel`: supervised, Baum-Welch, Viterbi |
-| [ONNX Export](onnx-export.md) | Exporting models to ONNX and INT8 quantization |
-| [ONNX Inference](onnx-inference.md) | `MarkovONNXRuntime` and `HMMONNXRuntime` wrappers |
+| [ONNX Export](onnx-export.md) | Dense, sparse, and INT8 quantized ONNX export |
+| [ONNX Inference](onnx-inference.md) | `MarkovONNXRuntime`, `from_file`, batch inference |
 | [Text Generation](text-generation.md) | `generate_markov` auto-regressive generation |
+| [Portable Archives](archive.md) | `.markov` save/load format for model distribution |
+| [CLI](cli.md) | `markovonnx train/generate/info` command-line interface |
 | [API Reference](api-reference.md) | Complete public API with signatures and source links |
 | [Architecture](architecture.md) | ONNX graph structure and design decisions |
 
@@ -38,6 +40,8 @@ pip install -e ".[test]"    # + pytest
 | `vocabulary` | `Vocabulary` | `markovonnx/vocabulary.py` |
 | `markov` | `MarkovChain` | `markovonnx/markov.py` |
 | `hmm` | `HiddenMarkovModel` | `markovonnx/hmm.py` |
-| `onnx_export` | `export_markov_onnx`, `export_hmm_onnx`, `quantize_model` | `markovonnx/onnx_export.py` |
+| `onnx_export` | `export_markov_onnx`, `export_markov_sparse_onnx`, `export_hmm_onnx`, `quantize_model` | `markovonnx/onnx_export.py` |
 | `onnx_runtime` | `MarkovONNXRuntime`, `HMMONNXRuntime` | `markovonnx/onnx_runtime.py` |
 | `generate` | `generate_markov` | `markovonnx/generate.py` |
+| `archive` | `save_markov_archive`, `load_markov_archive` | `markovonnx/archive.py` |
+| `cli` | `main` (entry point: `markovonnx`) | `markovonnx/cli.py` |

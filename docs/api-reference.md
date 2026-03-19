@@ -95,8 +95,11 @@ class MarkovChain:
     order: int
     vocab: Vocabulary
     smoothing: float
+    backoff: bool
+    kneser_ney: bool
 
-    def __init__(self, order: int, vocab: Vocabulary, smoothing: float = 1e-5): ...
+    def __init__(self, order: int, vocab: Vocabulary, smoothing: float = 1e-5,
+                 backoff: bool = False, kneser_ney: bool = False): ...
     def fit(self, sequences: List[List]) -> None: ...
     def fit_streaming(self, path: str, tokenize_fn: Callable, max_lines: int = 0) -> None: ...
     def dense_matrix(self) -> np.ndarray: ...
@@ -133,8 +136,9 @@ class HiddenMarkovModel:
 ## markovonnx.onnx_export
 
 ### `export_markov_onnx(mc: MarkovChain, path: str) -> None` — `onnx_export.py:15`
-### `export_hmm_onnx(hmm: HiddenMarkovModel, path: str) -> None` — `onnx_export.py:82`
-### `quantize_model(onnx_path: str, quant_path: str) -> Optional[str]` — `onnx_export.py:147`
+### `export_markov_sparse_onnx(mc: MarkovChain, path: str) -> None` — `onnx_export.py:82`
+### `export_hmm_onnx(hmm: HiddenMarkovModel, path: str) -> None` — `onnx_export.py:222`
+### `quantize_model(onnx_path: str, quant_path: str) -> Optional[str]` — `onnx_export.py:266`
 
 ---
 
@@ -150,7 +154,10 @@ class MarkovONNXRuntime:
     provider: str
 
     def __init__(self, onnx_path: str, vocab: Vocabulary, order: int): ...
+    @classmethod
+    def from_file(cls, onnx_path: str) -> "MarkovONNXRuntime": ...
     def predict_probs(self, context: List) -> np.ndarray: ...
+    def predict_probs_batch(self, contexts: List[List]) -> np.ndarray: ...
     def sample(self, context: List, temperature: float = 1.0) -> object: ...
     def argmax(self, context: List) -> object: ...
 ```
@@ -183,3 +190,18 @@ def generate_markov(
     bpe_tokenizer: Optional[SubwordTokenizer] = None,
 ) -> str: ...
 ```
+
+---
+
+## markovonnx.archive
+
+### `save_markov_archive(model, archive_path: str) -> str` — `archive.py:23`
+### `load_markov_archive(archive_path: str) -> dict` — `archive.py:70`
+
+---
+
+## markovonnx.cli
+
+### `main() -> None` — `cli.py:68`
+
+Entry point for `markovonnx` console script. Subcommands: `train`, `generate`, `info`.
