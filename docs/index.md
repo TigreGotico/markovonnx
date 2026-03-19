@@ -29,6 +29,7 @@ pip install -e ".[test]"    # + pytest
 | [Text Generation](text-generation.md) | `generate_markov` auto-regressive generation |
 | [Portable Archives](archive.md) | `.markov` save/load format for model distribution |
 | [CLI](cli.md) | `markovonnx train/generate/info` command-line interface |
+| [OVOS Integration](ovos-integration.md) | All 8 OVOS plugins: config, training, recommendations |
 | [API Reference](api-reference.md) | Complete public API with signatures and source links |
 | [Architecture](architecture.md) | ONNX graph structure and design decisions |
 
