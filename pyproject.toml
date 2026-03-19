@@ -19,9 +19,36 @@ bpe = ["tokenizers"]
 viz = ["matplotlib"]
 quantize = ["onnxruntime-tools", "onnxconverter-common"]
 test = ["pytest", "pytest-cov", "hypothesis"]
+ovos = [
+    "ovos-plugin-manager>=0.0.1",
+    "ovos-bus-client>=0.1.0",
+    "ovos-utils>=0.1.0",
+    "ovos-config>=0.1.0",
+]
 
 [project.scripts]
 markovonnx = "markovonnx.cli:main"
+
+[project.entry-points."opm.pipeline"]
+ovos-markov-pipeline-plugin = "markovonnx.opm:MarkovPipeline"
+
+[project.entry-points."opm.lang.detect"]
+ovos-markov-lang-detect = "markovonnx.opm:MarkovLangDetector"
+
+[project.entry-points."opm.postag"]
+ovos-markov-postag = "markovonnx.opm:MarkovPosTagger"
+
+[project.entry-points."opm.keywords"]
+ovos-markov-keyword-extract = "markovonnx.opm:MarkovKeywordExtractor"
+
+[project.entry-points."opm.segmentation"]
+ovos-markov-segmentation = "markovonnx.opm:MarkovSegmenter"
+
+[project.entry-points."opm.g2p"]
+ovos-markov-g2p = "markovonnx.opm:MarkovG2P"
+
+[project.entry-points."opm.agents.chat"]
+ovos-markov-chat = "markovonnx.opm:MarkovChatEngine"
 
 [tool.setuptools.dynamic]
 version = { attr = "markovonnx.version.__version__" }
