@@ -2,36 +2,42 @@
 
 Markov chains and Hidden Markov Models with ONNX export and inference.
 
-## Modules
+## Installation
 
-| Module | Key Classes/Functions | Description |
-|---|---|---|
-| `config` | `MarkovConfig` | Dataclass configuration with env var defaults |
-| `tokenizers` | `SubwordTokenizer`, `char_tokenize`, `word_tokenize`, `corpus_iter`, `get_tokenize_fn` | Tokenization and corpus streaming |
-| `vocabulary` | `Vocabulary` | Symbol-to-integer mapping with frequency pruning |
-| `markov` | `MarkovChain` | N-gram Markov chain (sparse storage, dense export) |
-| `hmm` | `HiddenMarkovModel` | Discrete HMM (supervised MLE + Baum-Welch) |
-| `onnx_export` | `export_markov_onnx`, `export_hmm_onnx`, `quantize_model` | ONNX model creation and INT8 quantization |
-| `onnx_runtime` | `MarkovONNXRuntime`, `HMMONNXRuntime` | ONNX Runtime inference wrappers |
-| `generate` | `generate_markov` | Auto-regressive text generation |
-
-## Usage
-
-```python
-from markovonnx import Vocabulary, MarkovChain, export_markov_onnx, MarkovONNXRuntime
-
-vocab = Vocabulary()
-vocab.build_from_sequences([list("abcabc")] * 100)
-
-mc = MarkovChain(order=2, vocab=vocab)
-mc.fit([list("abcabc")] * 100)
-
-export_markov_onnx(mc, "model.onnx")
-rt = MarkovONNXRuntime("model.onnx", vocab, order=2)
-print(rt.argmax(["a", "b"]))
+```bash
+pip install -e .            # core only
+pip install -e ".[bpe]"     # + BPE tokenizer support
+pip install -e ".[quantize]" # + INT8 quantization
+pip install -e ".[test]"    # + pytest
 ```
 
-## Dependencies
+**Requirements**: Python 3.10+, numpy, onnx, onnxruntime.
 
-- **Core**: `numpy`, `onnx`, `onnxruntime`
-- **Optional**: `tokenizers` (BPE), `matplotlib` (viz), `onnxruntime-tools` (quantization)
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](getting-started.md) | First steps: install, train, export, generate |
+| [Configuration](configuration.md) | `MarkovConfig` fields and environment variables |
+| [Tokenization](tokenization.md) | Character, word, and BPE tokenization modes |
+| [Vocabulary](vocabulary.md) | `Vocabulary` class: building, encoding, decoding |
+| [Markov Chains](markov-chains.md) | `MarkovChain` training, sampling, perplexity |
+| [Hidden Markov Models](hmm.md) | `HiddenMarkovModel`: supervised, Baum-Welch, Viterbi |
+| [ONNX Export](onnx-export.md) | Exporting models to ONNX and INT8 quantization |
+| [ONNX Inference](onnx-inference.md) | `MarkovONNXRuntime` and `HMMONNXRuntime` wrappers |
+| [Text Generation](text-generation.md) | `generate_markov` auto-regressive generation |
+| [API Reference](api-reference.md) | Complete public API with signatures and source links |
+| [Architecture](architecture.md) | ONNX graph structure and design decisions |
+
+## Module Map
+
+| Module | Key Symbols | Source |
+|--------|-------------|--------|
+| `config` | `MarkovConfig` | `markovonnx/config.py` |
+| `tokenizers` | `SubwordTokenizer`, `char_tokenize`, `word_tokenize`, `corpus_iter`, `get_tokenize_fn` | `markovonnx/tokenizers.py` |
+| `vocabulary` | `Vocabulary` | `markovonnx/vocabulary.py` |
+| `markov` | `MarkovChain` | `markovonnx/markov.py` |
+| `hmm` | `HiddenMarkovModel` | `markovonnx/hmm.py` |
+| `onnx_export` | `export_markov_onnx`, `export_hmm_onnx`, `quantize_model` | `markovonnx/onnx_export.py` |
+| `onnx_runtime` | `MarkovONNXRuntime`, `HMMONNXRuntime` | `markovonnx/onnx_runtime.py` |
+| `generate` | `generate_markov` | `markovonnx/generate.py` |
