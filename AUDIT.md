@@ -2,15 +2,24 @@
 
 ## Known Issues
 
-1. **Sparse export linear scan** — `export_markov_sparse_onnx` uses brute-force Equal scan over all keys. For very large sparse tables (>100K rows), inference may be slower than dense Gather. Not fixable in ONNX opset 13 without custom ops. — `markovonnx/onnx_export.py:192`
+1. **Sparse export linear scan** — `export_markov_sparse_onnx` uses brute-force Equal scan over all keys. Not fixable in ONNX opset 13 without custom ops. — `markovonnx/onnx_export.py:192`
 
 ## Resolved Issues
 
 1. ~~**CUDA provider warning**~~ — Fixed in v0.2.0.
 2. ~~**BPE generate seed bug**~~ — Fixed in v0.2.0.
-3. ~~**HMM underflow on long sequences**~~ — Fixed in v0.3.0 with log-space Baum-Welch.
+3. ~~**HMM underflow on long sequences**~~ — Fixed in v0.3.0.
 4. ~~**Laplace-only smoothing**~~ — Kneser-Ney added in v0.3.0.
 5. ~~**Dense-only ONNX export**~~ — Sparse export added in v0.3.0.
-6. ~~**Dense matrix memory**~~ — Fixed: `dense_matrix()` raises `MemoryError` if >2 GB.
-7. ~~**Sparse ONNX shape [1,V]**~~ — Fixed: Squeeze node added after Gather.
-8. ~~**from_file vocab truncation**~~ — Fixed: full vocab stored in ONNX metadata.
+6. ~~**Dense matrix memory**~~ — MemoryError raised if >2 GB.
+7. ~~**Sparse ONNX shape [1,V]**~~ — Squeeze node added.
+8. ~~**from_file vocab truncation**~~ — Full vocab stored; legacy padding with warning.
+9. ~~**Division by zero in dense_matrix**~~ — row_sums clamped to 1e-30.
+10. ~~**Division by zero in _kn_probs**~~ — Returns uniform if total==0.
+11. ~~**IndexError in Vocabulary.decode**~~ — Returns <UNK> for out-of-range IDs.
+12. ~~**KeyError in decode_bpe**~~ — Uses dict.get with fallback to unk_token.
+13. ~~**UnicodeEncodeError in decode_bpe**~~ — Catches both encode and decode errors.
+14. ~~**NaN in _logsumexp**~~ — Handles all-(-inf) inputs cleanly.
+15. ~~**Short context crash in predict_probs**~~ — Raises ValueError.
+16. ~~**Empty BPE context crash**~~ — Pads to order length with UNK IDs.
+17. ~~**Temp dir leak in load_markov_archive**~~ — atexit cleanup registered.
