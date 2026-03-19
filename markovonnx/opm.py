@@ -430,9 +430,19 @@ class MarkovLangDetector(LanguageDetector):
         super().__init__(config)
         self.order = self.config.get("order", 3)
         self._models: Dict[str, MarkovChain] = {}
+        # Load pretrained JSON models: {"en": "/path/to/en_lm.json", ...}
+        pretrained = self.config.get("pretrained", {})
+        for lang, model_path in pretrained.items():
+            if Path(model_path).is_file():
+                try:
+                    self._models[lang] = MarkovChain.load(model_path)
+                    LOG.info(f"Loaded pretrained lang model: {lang}")
+                except Exception as e:
+                    LOG.error(f"Failed to load pretrained {lang}: {e}")
+        # Train from raw text files (skip langs already loaded)
         training_data = self.config.get("training_data", {})
         for lang, path in training_data.items():
-            if Path(path).is_file():
+            if lang not in self._models and Path(path).is_file():
                 self.train_language(lang, path)
 
     def train_language(self, lang: str, corpus_path: str) -> None:
@@ -497,6 +507,15 @@ class MarkovPosTagger(PosTagger):
         super().__init__(config)
         self.smoothing = (self.config or {}).get("smoothing", 1e-5)
         self._models: Dict[str, HiddenMarkovModel] = {}
+        # Load pretrained HMM models: {"en": "/path/to/en_pos.json"}
+        pretrained = (self.config or {}).get("pretrained", {})
+        for lang, model_path in pretrained.items():
+            if Path(model_path).is_file():
+                try:
+                    self._models[lang] = HiddenMarkovModel.load(model_path)
+                    LOG.info(f"Loaded pretrained POS model: {lang}")
+                except Exception as e:
+                    LOG.error(f"Failed to load pretrained POS {lang}: {e}")
 
     def train(self, lang: str, word_sequences: List[List[str]],
               tag_sequences: List[List[str]]) -> None:
@@ -653,6 +672,16 @@ class MarkovG2P(Grapheme2PhonemePlugin):
         self.smoothing = (self.config or {}).get("smoothing", 1e-5)
         self._models: Dict[str, HiddenMarkovModel] = {}
         self._trained_langs: Set[str] = set()
+        # Load pretrained HMM models: {"en": "/path/to/en_g2p.json"}
+        pretrained = (self.config or {}).get("pretrained", {})
+        for lang, model_path in pretrained.items():
+            if Path(model_path).is_file():
+                try:
+                    self._models[lang] = HiddenMarkovModel.load(model_path)
+                    self._trained_langs.add(lang)
+                    LOG.info(f"Loaded pretrained G2P model: {lang}")
+                except Exception as e:
+                    LOG.error(f"Failed to load pretrained G2P {lang}: {e}")
 
     @property
     def available_languages(self) -> Set[str]:

@@ -231,3 +231,53 @@ class HiddenMarkovModel:
         if self.state_vocab:
             return self.state_vocab.decode(path)
         return [str(s) for s in path]
+
+    # -- Serialization --------------------------------------------------------
+
+    def save(self, path: str) -> None:
+        """Save trained HMM to a JSON file.
+
+        Args:
+            path: Destination file path.
+        """
+        import json
+        from pathlib import Path as _Path
+        _Path(path).parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "n_states": self.n_states,
+            "smoothing": self.smoothing,
+            "pi": self.pi.tolist(),
+            "A": self.A.tolist(),
+            "B": self.B.tolist(),
+            "obs_vocab": self.obs_vocab.to_dict(),
+            "state_vocab": self.state_vocab.to_dict() if self.state_vocab else None,
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+
+    @classmethod
+    def load(cls, path: str) -> "HiddenMarkovModel":
+        """Load a trained HMM from a JSON file.
+
+        Args:
+            path: Path to saved HMM JSON.
+
+        Returns:
+            Reconstructed HiddenMarkovModel with trained parameters.
+        """
+        import json
+        from markovonnx.vocabulary import Vocabulary as _Vocab
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        obs_vocab = _Vocab.from_dict(data["obs_vocab"])
+        state_vocab = _Vocab.from_dict(data["state_vocab"]) if data["state_vocab"] else None
+        hmm = cls(
+            n_states=data["n_states"],
+            obs_vocab=obs_vocab,
+            state_vocab=state_vocab,
+            smoothing=data["smoothing"],
+        )
+        hmm.pi = np.array(data["pi"], dtype=np.float32)
+        hmm.A = np.array(data["A"], dtype=np.float32)
+        hmm.B = np.array(data["B"], dtype=np.float32)
+        return hmm

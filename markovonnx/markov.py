@@ -285,3 +285,56 @@ class MarkovChain:
                 total_log += math.log(max(p, 1e-30))
                 total_n += 1
         return math.exp(-total_log / max(total_n, 1))
+
+    # -- Serialization --------------------------------------------------------
+
+    def save(self, path: str) -> None:
+        """Save trained MarkovChain to a JSON file.
+
+        Args:
+            path: Destination file path.
+        """
+        import json
+        from pathlib import Path as _Path
+        _Path(path).parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "order": self.order,
+            "smoothing": self.smoothing,
+            "backoff": self.backoff,
+            "kneser_ney": self.kneser_ney,
+            "kn_d1": self._kn_d1,
+            "kn_d2": self._kn_d2,
+            "kn_d3": self._kn_d3,
+            "vocab": self.vocab.to_dict(),
+            "counts": {str(k): v.tolist() for k, v in self._counts.items()},
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+
+    @classmethod
+    def load(cls, path: str) -> "MarkovChain":
+        """Load a trained MarkovChain from a JSON file.
+
+        Args:
+            path: Path to saved MarkovChain JSON.
+
+        Returns:
+            Reconstructed MarkovChain with trained parameters.
+        """
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        vocab = Vocabulary.from_dict(data["vocab"])
+        mc = cls(
+            order=data["order"],
+            vocab=vocab,
+            smoothing=data["smoothing"],
+            backoff=data.get("backoff", False),
+            kneser_ney=data.get("kneser_ney", False),
+        )
+        mc._kn_d1 = data.get("kn_d1", 0.75)
+        mc._kn_d2 = data.get("kn_d2", 0.75)
+        mc._kn_d3 = data.get("kn_d3", 0.75)
+        mc._kn_discount = (mc._kn_d1 + mc._kn_d2 + mc._kn_d3) / 3.0
+        mc._counts = {int(k): np.array(v, dtype=np.float32) for k, v in data["counts"].items()}
+        return mc
