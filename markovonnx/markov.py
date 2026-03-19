@@ -140,9 +140,18 @@ class MarkovChain:
         """Build full transition matrix ``T[V^order, V]`` with smoothing.
 
         Uses Kneser-Ney discounting if *kneser_ney* was set, otherwise Laplace.
+
+        Raises:
+            MemoryError: If the matrix would exceed 2 GB.
         """
         V = self.vocab.size
         total_rows = V ** self.order
+        matrix_bytes = total_rows * V * 4
+        if matrix_bytes > 2 * 1024 ** 3:
+            raise MemoryError(
+                f"Dense transition matrix would be {matrix_bytes / (1024 ** 3):.1f} GB "
+                f"(V={V}, order={self.order}). Use export_markov_sparse_onnx() instead."
+            )
         if self.kneser_ney:
             T = self._dense_kneser_ney(total_rows, V)
         else:

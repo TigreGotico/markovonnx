@@ -70,9 +70,8 @@ class TestMarkovONNXRuntime:
             token = rt.argmax(["a"])
             assert token in rt.vocab.tok2id
 
-    def test_from_file_with_truncated_vocab(self) -> None:
-        """from_file should pad vocab when stored vocab was truncated."""
-        # Create a model with > 500 tokens to trigger truncation
+    def test_from_file_with_large_vocab(self) -> None:
+        """from_file should handle large vocabs (full vocab now stored)."""
         vocab = Vocabulary()
         tokens = [[f"t{i}" for i in range(600)]]
         vocab.build_from_sequences(tokens)
@@ -83,8 +82,8 @@ class TestMarkovONNXRuntime:
             export_markov_onnx(mc, path)
             rt = MarkovONNXRuntime.from_file(path)
             assert rt.vocab.size == vocab.size
-            # Padded tokens should exist
-            assert "<TOKEN_500>" in rt.vocab.tok2id
+            # Full vocab stored — all original tokens present
+            assert "t500" in rt.vocab.tok2id
 
     def test_predict_probs_batch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

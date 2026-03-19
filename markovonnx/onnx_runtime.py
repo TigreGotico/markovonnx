@@ -64,9 +64,17 @@ class MarkovONNXRuntime:
         order = int(meta["order"])
         id2tok = json.loads(meta["vocab"])
         vocab_size = int(meta["vocab_size"])
-        # Pad if the stored vocab was truncated
-        while len(id2tok) < vocab_size:
-            id2tok.append(f"<TOKEN_{len(id2tok)}>")
+        # Pad if the stored vocab was truncated (legacy models exported with 500-token cap)
+        if len(id2tok) < vocab_size:
+            import warnings
+            warnings.warn(
+                f"ONNX metadata contains {len(id2tok)} vocab tokens but model expects "
+                f"{vocab_size}. Padding with placeholders. Re-export for full vocab.",
+                UserWarning,
+                stacklevel=2,
+            )
+            while len(id2tok) < vocab_size:
+                id2tok.append(f"<TOKEN_{len(id2tok)}>")
         vocab = Vocabulary()
         vocab.id2tok = id2tok
         vocab.tok2id = {tok: i for i, tok in enumerate(id2tok)}

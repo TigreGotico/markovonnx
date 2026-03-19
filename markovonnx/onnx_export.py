@@ -67,7 +67,7 @@ def export_markov_onnx(mc: MarkovChain, path: str) -> None:
     meta = model.metadata_props.add()
     meta.key, meta.value = "order", str(order)
     meta = model.metadata_props.add()
-    meta.key, meta.value = "vocab", json.dumps(mc.vocab.id2tok[:500])
+    meta.key, meta.value = "vocab", json.dumps(mc.vocab.id2tok)
     meta = model.metadata_props.add()
     meta.key, meta.value = "vocab_size", str(V)
 
@@ -173,8 +173,9 @@ def export_markov_sparse_onnx(mc: MarkovChain, path: str) -> None:
         # select position or fallback
         helper.make_node("Where", ["has_match", "pos_found", "fallback_idx"],
                          ["pos"]),
-        # 3. lookup
-        helper.make_node("Gather", ["sparse_table", "pos"], ["probs"]),
+        # 3. lookup + squeeze to [V]
+        helper.make_node("Gather", ["sparse_table", "pos"], ["probs_raw"]),
+        helper.make_node("Squeeze", ["probs_raw"], ["probs"]),
         # 4. argmax
         helper.make_node("ArgMax", ["probs"], ["next_id"], axis=0, keepdims=1),
     ]
@@ -195,7 +196,7 @@ def export_markov_sparse_onnx(mc: MarkovChain, path: str) -> None:
     for k, v in [
         ("model_type", "markov_chain_sparse"),
         ("order", str(order)),
-        ("vocab", json.dumps(mc.vocab.id2tok[:500])),
+        ("vocab", json.dumps(mc.vocab.id2tok)),
         ("vocab_size", str(V)),
         ("n_sparse_rows", str(n_sparse)),
     ]:
