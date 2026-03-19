@@ -11,7 +11,7 @@ from markovonnx.vocabulary import Vocabulary
 
 
 class MarkovChain:
-    """N-gram Markov chain with optional interpolated backoff.
+    """N-gram Markov chain with optional interpolated backoff and Kneser-Ney smoothing.
 
     Stores counts in a dict-of-arrays to stay sparse, converting to a dense
     matrix only on export.  This keeps RAM reasonable for large vocabularies.
@@ -23,8 +23,10 @@ class MarkovChain:
     Args:
         order: N-gram order (context length).
         vocab: :class:`Vocabulary` instance.
-        smoothing: Laplace smoothing alpha.
+        smoothing: Laplace smoothing alpha (used when *kneser_ney* is ``False``).
         backoff: If ``True``, train and use lower-order models as fallback.
+        kneser_ney: If ``True``, use modified Kneser-Ney smoothing instead
+            of Laplace.  The discount *d* is estimated from counts automatically.
     """
 
     def __init__(
@@ -33,13 +35,16 @@ class MarkovChain:
         vocab: Vocabulary,
         smoothing: float = 1e-5,
         backoff: bool = False,
+        kneser_ney: bool = False,
     ):
         self.order = order
         self.vocab = vocab
         self.smoothing = smoothing
         self.backoff = backoff
+        self.kneser_ney = kneser_ney
         self._counts: Dict[int, np.ndarray] = {}
         self._lower: Optional["MarkovChain"] = None
+        self._kn_discount: float = 0.75  # estimated after fit
 
     # -- Context encoding -----------------------------------------------------
 
@@ -63,12 +68,30 @@ class MarkovChain:
                 self._counts[ci] = np.zeros(V, dtype=np.float32)
             self._counts[ci][nxt] += 1.0
 
+    def _estimate_kn_discount(self) -> float:
+        """Estimate the Kneser-Ney discount *d* from count-of-counts.
+
+        Uses the formula: d = n1 / (n1 + 2 * n2)
+        where n1 = number of n-grams occurring exactly once,
+              n2 = number of n-grams occurring exactly twice.
+        """
+        n1 = 0
+        n2 = 0
+        for row in self._counts.values():
+            n1 += int((row == 1).sum())
+            n2 += int((row == 2).sum())
+        if n1 + 2 * n2 == 0:
+            return 0.75
+        return n1 / (n1 + 2 * n2)
+
     def fit(self, sequences: List[List]) -> None:
         """Train on an in-memory list of token sequences."""
         t0 = time.time()
         for seq in sequences:
             self._update_from_sequence(self.vocab.encode(seq))
         elapsed = time.time() - t0
+        if self.kneser_ney:
+            self._kn_discount = self._estimate_kn_discount()
         print(
             f"MarkovChain(order={self.order}) trained on "
             f"{len(sequences):,} sequences in {elapsed:.2f}s  |  "
@@ -80,6 +103,7 @@ class MarkovChain:
                 vocab=self.vocab,
                 smoothing=self.smoothing,
                 backoff=True,
+                kneser_ney=self.kneser_ney,
             )
             self._lower.fit(sequences)
 
@@ -103,6 +127,8 @@ class MarkovChain:
         for seq in corpus_iter(path, tokenize_fn, max_lines):
             self._update_from_sequence(self.vocab.encode(seq))
             n += 1
+        if self.kneser_ney:
+            self._kn_discount = self._estimate_kn_discount()
         print(
             f"Streaming fit done: {n:,} sequences, "
             f"{len(self._counts):,} contexts  ({time.time() - t0:.1f}s)"
@@ -111,15 +137,37 @@ class MarkovChain:
     # -- Dense matrix (needed for ONNX export) --------------------------------
 
     def dense_matrix(self) -> np.ndarray:
-        """Build full transition matrix ``T[V^order, V]`` with Laplace smoothing."""
+        """Build full transition matrix ``T[V^order, V]`` with smoothing.
+
+        Uses Kneser-Ney discounting if *kneser_ney* was set, otherwise Laplace.
+        """
         V = self.vocab.size
         total_rows = V ** self.order
-        T = np.full((total_rows, V), self.smoothing, dtype=np.float32)
+        if self.kneser_ney:
+            T = self._dense_kneser_ney(total_rows, V)
+        else:
+            T = np.full((total_rows, V), self.smoothing, dtype=np.float32)
+            for ci, row in self._counts.items():
+                if ci < total_rows:
+                    T[ci] += row
+            row_sums = T.sum(axis=1, keepdims=True)
+            T /= row_sums
+        return T
+
+    def _dense_kneser_ney(self, total_rows: int, V: int) -> np.ndarray:
+        """Build dense matrix with absolute-discount Kneser-Ney smoothing."""
+        d = self._kn_discount
+        T = np.full((total_rows, V), 1.0 / V, dtype=np.float32)  # uniform backoff
         for ci, row in self._counts.items():
-            if ci < total_rows:
-                T[ci] += row
-        row_sums = T.sum(axis=1, keepdims=True)
-        T /= row_sums
+            if ci >= total_rows:
+                continue
+            total = row.sum()
+            if total == 0:
+                continue
+            n_positive = float((row > 0).sum())
+            lam = d * n_positive / total  # interpolation weight
+            discounted = np.maximum(row - d, 0.0) / total
+            T[ci] = discounted + lam * (1.0 / V)
         return T
 
     # -- Probability lookup with backoff --------------------------------------
@@ -131,12 +179,24 @@ class MarkovChain:
         ci = self._ctx_idx(ids)
         row = self._counts.get(ci, None)
         if row is not None and row.sum() > 0:
+            if self.kneser_ney:
+                return self._kn_probs(row)
             return (row + self.smoothing) / (row.sum() + self.smoothing * V)
         # Backoff to lower-order model
         if self._lower is not None and len(context) > 1:
             return self._lower._get_probs(context[1:])
         # Uniform fallback
         return np.full(V, 1.0 / V, dtype=np.float32)
+
+    def _kn_probs(self, row: np.ndarray) -> np.ndarray:
+        """Compute Kneser-Ney smoothed probabilities for a single row."""
+        V = self.vocab.size
+        d = self._kn_discount
+        total = row.sum()
+        n_positive = float((row > 0).sum())
+        lam = d * n_positive / total
+        discounted = np.maximum(row - d, 0.0) / total
+        return discounted + lam * (1.0 / V)
 
     # -- Sampling -------------------------------------------------------------
 

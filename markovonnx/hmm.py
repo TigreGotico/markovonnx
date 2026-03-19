@@ -7,8 +7,20 @@ import numpy as np
 from markovonnx.vocabulary import Vocabulary
 
 
+def _logsumexp(a: np.ndarray, axis: int = -1, keepdims: bool = False) -> np.ndarray:
+    """Numerically stable log-sum-exp (like scipy.special.logsumexp)."""
+    a_max = np.max(a, axis=axis, keepdims=True)
+    out = a_max + np.log(np.sum(np.exp(a - a_max), axis=axis, keepdims=True))
+    if not keepdims:
+        out = np.squeeze(out, axis=axis)
+    return out
+
+
 class HiddenMarkovModel:
     """Discrete HMM with supervised (MLE) and unsupervised (Baum-Welch) training.
+
+    Baum-Welch operates entirely in log-space for numerical stability
+    with long sequences.
 
     Args:
         n_states: Number of hidden states.
@@ -72,14 +84,17 @@ class HiddenMarkovModel:
         self.B = (B_c / B_c.sum(axis=1, keepdims=True)).astype(np.float32)
         print(f"HMM supervised fit: {S} states, {O} observations")
 
-    # -- Baum-Welch (unsupervised) --------------------------------------------
+    # -- Baum-Welch (unsupervised, log-space) ---------------------------------
 
     def fit_unsupervised(
         self,
         obs_seqs: List[List[str]],
         n_iter: int = 10,
     ) -> None:
-        """Train via Baum-Welch (forward-backward EM).
+        """Train via Baum-Welch (forward-backward EM) in log-space.
+
+        All forward/backward computations use log-probabilities and
+        :func:`_logsumexp` to avoid underflow on long sequences.
 
         Args:
             obs_seqs: Lists of observation token sequences.
@@ -89,58 +104,90 @@ class HiddenMarkovModel:
         O = self.obs_vocab.size
 
         rng = np.random.default_rng(42)
-        self.pi = rng.dirichlet(np.ones(S)).astype(np.float32)
-        self.A = rng.dirichlet(np.ones(S), size=S).astype(np.float32)
-        self.B = rng.dirichlet(np.ones(O), size=S).astype(np.float32)
+        self.pi = rng.dirichlet(np.ones(S)).astype(np.float64)
+        self.A = rng.dirichlet(np.ones(S), size=S).astype(np.float64)
+        self.B = rng.dirichlet(np.ones(O), size=S).astype(np.float64)
 
         for it in range(n_iter):
-            pi_num = np.zeros(S) + self.smoothing
-            A_num = np.zeros((S, S)) + self.smoothing
-            B_num = np.zeros((S, O)) + self.smoothing
-            log_like = 0.0
+            log_pi = np.log(self.pi + 1e-300)
+            log_A = np.log(self.A + 1e-300)
+            log_B = np.log(self.B + 1e-300)
+
+            # Accumulators in log-space (initialised to log(smoothing))
+            log_smooth = np.log(self.smoothing)
+            log_pi_num = np.full(S, log_smooth)
+            log_A_num = np.full((S, S), log_smooth)
+            log_B_num = np.full((S, O), log_smooth)
+            total_log_like = 0.0
 
             for obs_seq in obs_seqs:
                 obs = self.obs_vocab.encode(obs_seq)
                 T = len(obs)
                 if T < 2:
                     continue
-                # Forward
-                alpha = np.zeros((T, S), dtype=np.float64)
-                alpha[0] = self.pi * self.B[:, obs[0]]
-                scale = np.zeros(T)
-                scale[0] = alpha[0].sum() + 1e-300
-                alpha[0] /= scale[0]
-                for t in range(1, T):
-                    alpha[t] = (alpha[t - 1] @ self.A) * self.B[:, obs[t]]
-                    scale[t] = alpha[t].sum() + 1e-300
-                    alpha[t] /= scale[t]
-                log_like += np.log(scale + 1e-300).sum()
-                # Backward
-                beta = np.zeros((T, S), dtype=np.float64)
-                beta[-1] = 1.0
-                for t in range(T - 2, -1, -1):
-                    beta[t] = (self.A * self.B[:, obs[t + 1]]) @ beta[t + 1]
-                    beta[t] /= scale[t + 1]
-                # Gamma / xi
-                gamma = alpha * beta
-                gamma /= gamma.sum(axis=1, keepdims=True) + 1e-300
-                pi_num += gamma[0]
-                for t in range(T - 1):
-                    xi = (
-                        alpha[t][:, None]
-                        * self.A
-                        * self.B[:, obs[t + 1]]
-                        * beta[t + 1]
-                    )
-                    xi /= xi.sum() + 1e-300
-                    A_num += xi
-                for t in range(T):
-                    B_num[:, obs[t]] += gamma[t]
 
-            self.pi = (pi_num / pi_num.sum()).astype(np.float32)
-            self.A = (A_num / A_num.sum(axis=1, keepdims=True)).astype(np.float32)
-            self.B = (B_num / B_num.sum(axis=1, keepdims=True)).astype(np.float32)
-            print(f"  Baum-Welch iter {it + 1}/{n_iter}  log-likelihood={log_like:.2f}")
+                # -- Log-space forward pass -----------------------------------
+                log_alpha = np.full((T, S), -np.inf)
+                log_alpha[0] = log_pi + log_B[:, obs[0]]
+
+                for t in range(1, T):
+                    # log_alpha[t, j] = log( sum_i alpha[t-1,i] * A[i,j] ) + log B[j, obs[t]]
+                    # = logsumexp( log_alpha[t-1, :] + log_A[:, j] ) + log_B[j, obs[t]]
+                    for j in range(S):
+                        log_alpha[t, j] = (
+                            _logsumexp(log_alpha[t - 1] + log_A[:, j])
+                            + log_B[j, obs[t]]
+                        )
+
+                log_likelihood = float(_logsumexp(log_alpha[-1]))
+                total_log_like += log_likelihood
+
+                # -- Log-space backward pass ----------------------------------
+                log_beta = np.full((T, S), -np.inf)
+                log_beta[-1] = 0.0  # log(1)
+
+                for t in range(T - 2, -1, -1):
+                    for i in range(S):
+                        log_beta[t, i] = _logsumexp(
+                            log_A[i, :] + log_B[:, obs[t + 1]] + log_beta[t + 1]
+                        )
+
+                # -- Log-gamma: log P(state_t = i | observations) ------------
+                log_gamma = log_alpha + log_beta
+                log_gamma -= _logsumexp(log_gamma, axis=1, keepdims=True)
+
+                # Accumulate pi
+                log_pi_num = np.logaddexp(log_pi_num, log_gamma[0])
+
+                # Accumulate A: log_xi[t, i, j]
+                for t in range(T - 1):
+                    log_xi = (
+                        log_alpha[t][:, None]
+                        + log_A
+                        + log_B[:, obs[t + 1]][None, :]
+                        + log_beta[t + 1][None, :]
+                    )
+                    log_xi -= _logsumexp(log_xi.ravel())
+                    log_A_num = np.logaddexp(log_A_num, log_xi)
+
+                # Accumulate B
+                for t in range(T):
+                    log_B_num[:, obs[t]] = np.logaddexp(
+                        log_B_num[:, obs[t]], log_gamma[t]
+                    )
+
+            # -- M-step: normalize accumulators in log-space ------------------
+            self.pi = np.exp(log_pi_num - _logsumexp(log_pi_num)).astype(np.float32)
+            self.A = np.exp(
+                log_A_num - _logsumexp(log_A_num, axis=1, keepdims=True)
+            ).astype(np.float32)
+            self.B = np.exp(
+                log_B_num - _logsumexp(log_B_num, axis=1, keepdims=True)
+            ).astype(np.float32)
+            print(
+                f"  Baum-Welch iter {it + 1}/{n_iter}  "
+                f"log-likelihood={total_log_like:.2f}"
+            )
 
     # -- Viterbi decoding -----------------------------------------------------
 

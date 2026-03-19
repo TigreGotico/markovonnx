@@ -128,3 +128,70 @@ class TestMarkovChain:
         # Unseen context with no backoff -> uniform
         probs = mc._get_probs(["<UNK>"])
         assert abs(probs.sum() - 1.0) < 1e-5
+
+    def test_kneser_ney_basic(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "a", "b", "c", "a"]] * 20
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab, kneser_ney=True)
+        mc.fit(seqs)
+        assert 0 < mc._kn_discount < 1.0
+        # Dense matrix rows should sum to ~1
+        T = mc.dense_matrix()
+        for row in T:
+            assert abs(row.sum() - 1.0) < 1e-4
+
+    def test_kneser_ney_probs_sum_to_one(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c"]] * 10
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab, kneser_ney=True)
+        mc.fit(seqs)
+        probs = mc._get_probs(["a"])
+        assert abs(probs.sum() - 1.0) < 1e-4
+
+    def test_kneser_ney_perplexity(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a", "b", "c"]] * 20
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab, kneser_ney=True)
+        mc.fit(seqs)
+        ppx = mc.perplexity(seqs[:5])
+        assert ppx > 0
+        assert ppx < 1e6
+
+    def test_kneser_ney_with_backoff(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a", "b", "c"]] * 20
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=2, vocab=vocab, kneser_ney=True, backoff=True)
+        mc.fit(seqs)
+        assert mc._lower is not None
+        assert mc._lower.kneser_ney is True
+        token = mc.sample(["a", "b"])
+        assert token in vocab.tok2id
+
+    def test_kneser_ney_discount_with_singletons(self) -> None:
+        """Ensure discount is computed from count-of-counts with n1 > 0."""
+        vocab = Vocabulary()
+        # d->e appears once (singleton), a->b appears many times
+        seqs = [
+            ["a", "b", "a", "b", "a", "b"],
+            ["a", "b", "c", "d", "e"],
+        ]
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab, kneser_ney=True)
+        mc.fit(seqs)
+        # d->e is a singleton, so n1 > 0 and discount > 0
+        assert 0 < mc._kn_discount < 1.0
+
+    def test_kneser_ney_streaming(self) -> None:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            for _ in range(50):
+                f.write("abcabc\n")
+            path = f.name
+        vocab = Vocabulary()
+        vocab.build_streaming(path, tokenize_fn=char_tokenize)
+        mc = MarkovChain(order=1, vocab=vocab, kneser_ney=True)
+        mc.fit_streaming(path, tokenize_fn=char_tokenize)
+        assert 0 < mc._kn_discount < 1.0

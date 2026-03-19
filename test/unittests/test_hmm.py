@@ -94,3 +94,30 @@ class TestHMMUnsupervised:
         # Should be stringified integers
         for s in result:
             assert s in ("0", "1")
+
+    def test_log_space_numerical_stability(self) -> None:
+        """Log-space Baum-Welch should handle longer sequences without NaN."""
+        obs_vocab = Vocabulary()
+        obs_vocab.build_from_sequences([["a", "b", "c", "d"]])
+        hmm = HiddenMarkovModel(n_states=3, obs_vocab=obs_vocab)
+        # Longer sequences that would underflow in linear space
+        long_seqs = [["a", "b", "c", "d", "a", "b", "c", "d"] * 5] * 10
+        hmm.fit_unsupervised(long_seqs, n_iter=5)
+        # All parameters should be valid probabilities, no NaN
+        assert not np.any(np.isnan(hmm.pi))
+        assert not np.any(np.isnan(hmm.A))
+        assert not np.any(np.isnan(hmm.B))
+        assert abs(hmm.pi.sum() - 1.0) < 1e-3
+        for row in hmm.A:
+            assert abs(row.sum() - 1.0) < 1e-3
+        for row in hmm.B:
+            assert abs(row.sum() - 1.0) < 1e-3
+
+    def test_emission_matrix_valid_after_log_baum_welch(self) -> None:
+        """B matrix rows should sum to 1 after log-space training."""
+        obs_vocab = _obs_vocab()
+        hmm = HiddenMarkovModel(n_states=2, obs_vocab=obs_vocab)
+        obs_seqs = [["a", "b", "c", "a", "b"]] * 15
+        hmm.fit_unsupervised(obs_seqs, n_iter=5)
+        for row in hmm.B:
+            assert abs(row.sum() - 1.0) < 1e-3

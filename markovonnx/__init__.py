@@ -5,7 +5,12 @@ from markovonnx.config import MarkovConfig
 from markovonnx.generate import generate_markov
 from markovonnx.hmm import HiddenMarkovModel
 from markovonnx.markov import MarkovChain
-from markovonnx.onnx_export import export_hmm_onnx, export_markov_onnx, quantize_model
+from markovonnx.onnx_export import (
+    export_hmm_onnx,
+    export_markov_onnx,
+    export_markov_sparse_onnx,
+    quantize_model,
+)
 from markovonnx.onnx_runtime import HMMONNXRuntime, MarkovONNXRuntime
 from markovonnx.tokenizers import (
     SubwordTokenizer,
@@ -28,6 +33,7 @@ __all__ = [
     "corpus_iter",
     "get_tokenize_fn",
     "export_markov_onnx",
+    "export_markov_sparse_onnx",
     "export_hmm_onnx",
     "quantize_model",
     "MarkovONNXRuntime",
