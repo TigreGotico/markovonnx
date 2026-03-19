@@ -17,3 +17,18 @@ Dense transition matrix = `V^order * V * 4` bytes (float32). For V=324 and order
 
 ## Does quantization work?
 Yes — `quantize_model()` applies INT8 dynamic quantization, typically achieving 75% size reduction.
+
+## How do I save and load a model portably?
+Use `save_markov_archive(model, "model.markov")` and `load_markov_archive("model.markov")`. The `.markov` file is a ZIP containing the ONNX model, vocabulary, and config.
+
+## Can I load a model without the original Vocabulary object?
+Yes — `MarkovONNXRuntime.from_file("model.onnx")` reconstructs the vocab from metadata embedded in the ONNX file. For vocabs > 500 tokens, tokens beyond 500 are padded as `<TOKEN_N>`.
+
+## What is backoff and when should I use it?
+`MarkovChain(backoff=True)` trains lower-order models alongside the primary one. When a context is unseen at order N, the model backs off to order N-1, then N-2, etc. This reduces perplexity on data with rare contexts. Enable it for small corpora or high orders.
+
+## Is there a CLI?
+Yes — `markovonnx train corpus.txt -o model.markov` and `markovonnx generate model.markov --seed "the" --length 100`. See `markovonnx --help`.
+
+## Can I batch inference calls?
+Yes — `rt.predict_probs_batch(contexts)` processes multiple contexts and returns shape `(N, vocab_size)`.

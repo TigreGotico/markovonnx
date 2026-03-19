@@ -4,6 +4,19 @@
 - [x] Create pyproject.toml and package structure
 - [x] Write unit tests (38 tests, 83% coverage)
 - [x] Create docs/index.md
-- [ ] Add SubwordTokenizer tests (requires fixture JSON file)
-- [ ] Add CLI entry point
-- [ ] Add sparse ONNX export for large models
+- [x] Add SubwordTokenizer tests
+- [x] Achieve 100% coverage (80 tests)
+- [x] Add examples (10 examples with toy datasets)
+- [x] Fix BPE generate seed bug
+- [x] Suppress CUDA provider warning
+- [x] Add interpolated backoff
+- [x] Add batch inference
+- [x] Add .markov archive save/load
+- [x] Add MarkovONNXRuntime.from_file metadata loading
+- [x] Add CLI entry point
+- [x] Add Vocabulary serialization
+- [x] Add property-based tests (Hypothesis)
+- [x] Add integration test
+- [ ] Sparse ONNX export for very large models
+- [ ] Kneser-Ney smoothing
+- [ ] Full log-space HMM (log-semiring Baum-Welch)
