@@ -1,0 +1,107 @@
+"""ONNX Runtime wrappers for Markov chain and HMM inference."""
+
+import os
+from typing import List
+
+import numpy as np
+import onnxruntime as ort
+
+from markovonnx.hmm import HiddenMarkovModel
+from markovonnx.vocabulary import Vocabulary
+
+
+class MarkovONNXRuntime:
+    """Wraps an ORT session for Markov chain next-token prediction.
+
+    Args:
+        onnx_path: Path to the exported ``.onnx`` file.
+        vocab: :class:`Vocabulary` used during training.
+        order: N-gram order matching the exported model.
+    """
+
+    def __init__(self, onnx_path: str, vocab: Vocabulary, order: int):
+        self.vocab = vocab
+        self.order = order
+        so = ort.SessionOptions()
+        so.intra_op_num_threads = int(os.cpu_count() or 1)
+        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        self.sess = ort.InferenceSession(
+            onnx_path,
+            sess_options=so,
+            providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+        )
+        self.provider = self.sess.get_providers()[0]
+
+    def predict_probs(self, context: List) -> np.ndarray:
+        """Return the full probability vector over the vocabulary.
+
+        Args:
+            context: Token sequence (at least *order* tokens).
+        """
+        ids = np.array(self.vocab.encode(context[-self.order :]), dtype=np.int64)
+        return self.sess.run(["probs"], {"input_ids": ids})[0]
+
+    def sample(self, context: List, temperature: float = 1.0) -> object:
+        """Sample the next token with optional temperature scaling.
+
+        Args:
+            context: Token sequence.
+            temperature: Sampling temperature (1.0 = unscaled).
+        """
+        probs = self.predict_probs(context).astype(np.float64)
+        if temperature != 1.0:
+            logits = np.log(probs + 1e-30) / temperature
+            probs = np.exp(logits - logits.max())
+            probs /= probs.sum()
+        return self.vocab.id2tok[
+            int(np.random.choice(len(probs), p=probs / probs.sum()))
+        ]
+
+    def argmax(self, context: List) -> object:
+        """Return the greedy (deterministic) next token.
+
+        Args:
+            context: Token sequence.
+        """
+        ids = np.array(self.vocab.encode(context[-self.order :]), dtype=np.int64)
+        nid = self.sess.run(["next_id"], {"input_ids": ids})[0]
+        return self.vocab.id2tok[int(nid.flat[0])]
+
+
+class HMMONNXRuntime:
+    """Wraps an ORT session for HMM step-by-step forward-pass decoding.
+
+    Args:
+        onnx_path: Path to the exported ``.onnx`` file.
+        hmm: :class:`HiddenMarkovModel` used during training (for vocab / pi).
+    """
+
+    def __init__(self, onnx_path: str, hmm: HiddenMarkovModel):
+        self.hmm = hmm
+        so = ort.SessionOptions()
+        so.intra_op_num_threads = int(os.cpu_count() or 1)
+        self.sess = ort.InferenceSession(onnx_path, sess_options=so)
+
+    def decode(self, obs_seq: List[str]) -> List[str]:
+        """Decode an observation sequence via greedy forward pass.
+
+        Args:
+            obs_seq: Observation token sequence.
+
+        Returns:
+            Predicted state sequence.
+        """
+        alpha = self.hmm.pi.copy()
+        states = []
+        for tok in obs_seq:
+            obs_id = np.array(
+                [self.hmm.obs_vocab.tok2id.get(tok, 0)], dtype=np.int64
+            )
+            alpha, best = self.sess.run(
+                ["alpha_out", "best_state"],
+                {"obs_id": obs_id, "alpha_in": alpha},
+            )
+            states.append(int(best.flat[0]))
+        if self.hmm.state_vocab:
+            return self.hmm.state_vocab.decode(states)
+        return [str(s) for s in states]

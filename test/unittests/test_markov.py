@@ -1,0 +1,64 @@
+"""Tests for markovonnx.markov."""
+
+from markovonnx.markov import MarkovChain
+from markovonnx.vocabulary import Vocabulary
+
+
+def _build_chain() -> MarkovChain:
+    """Build a small Markov chain on deterministic data."""
+    vocab = Vocabulary()
+    # "a b a b a b" repeated — strong a->b and b->a transitions
+    seqs = [["a", "b", "a", "b", "a", "b"]] * 20
+    vocab.build_from_sequences(seqs)
+    mc = MarkovChain(order=1, vocab=vocab, smoothing=1e-8)
+    mc.fit(seqs)
+    return mc
+
+
+class TestMarkovChain:
+    def test_fit_populates_counts(self) -> None:
+        mc = _build_chain()
+        assert len(mc._counts) > 0
+
+    def test_sample_returns_valid_token(self) -> None:
+        mc = _build_chain()
+        token = mc.sample(["a"])
+        assert token in mc.vocab.tok2id
+
+    def test_deterministic_transition(self) -> None:
+        mc = _build_chain()
+        # With very low smoothing, a->b should be dominant
+        counts = {}
+        for _ in range(100):
+            t = mc.sample(["a"], temperature=0.01)
+            counts[t] = counts.get(t, 0) + 1
+        assert counts.get("b", 0) > 90  # should be nearly always "b"
+
+    def test_dense_matrix_shape(self) -> None:
+        mc = _build_chain()
+        T = mc.dense_matrix()
+        V = mc.vocab.size
+        assert T.shape == (V, V)  # order=1 so V^1 x V
+
+    def test_dense_matrix_rows_sum_to_one(self) -> None:
+        mc = _build_chain()
+        T = mc.dense_matrix()
+        row_sums = T.sum(axis=1)
+        for s in row_sums:
+            assert abs(s - 1.0) < 1e-5
+
+    def test_perplexity_finite(self) -> None:
+        mc = _build_chain()
+        ppx = mc.perplexity([["a", "b", "a", "b"]])
+        assert ppx > 0
+        assert ppx < 1000
+
+    def test_order2(self) -> None:
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a", "b", "c"]] * 10
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=2, vocab=vocab, smoothing=1e-8)
+        mc.fit(seqs)
+        T = mc.dense_matrix()
+        V = vocab.size
+        assert T.shape == (V ** 2, V)

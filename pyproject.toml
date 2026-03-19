@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "markovonnx"
+dynamic = ["version"]
+description = "Markov chains and HMMs with ONNX export and inference"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "numpy",
+    "onnx",
+    "onnxruntime",
+]
+
+[project.optional-dependencies]
+bpe = ["tokenizers"]
+viz = ["matplotlib"]
+quantize = ["onnxruntime-tools", "onnxconverter-common"]
+test = ["pytest", "pytest-cov"]
+
+[tool.setuptools.dynamic]
+version = { attr = "markovonnx.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["markovonnx*"]

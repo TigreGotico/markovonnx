@@ -1,0 +1,17 @@
+numpy
+onnx
+onnxruntime
+
+[bpe]
+tokenizers
+
+[quantize]
+onnxruntime-tools
+onnxconverter-common
+
+[test]
+pytest
+pytest-cov
+
+[viz]
+matplotlib
