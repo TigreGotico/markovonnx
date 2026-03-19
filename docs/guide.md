@@ -45,15 +45,6 @@ Most Markov chain implementations exist as teaching tools or one-off scripts. ma
 | **Summarization** | Can't understand or compress meaning. | LLMs, extractive models |
 | **Conversational AI** | No dialogue state, no grounding, no reasoning. | LLMs, dialogue managers |
 
-### When to combine with other tools
-
-| Pattern | How |
-|---------|-----|
-| **Markov + Model2Vec** | Markov as fast pre-filter (top-3 by perplexity), M2V as semantic reranker |
-| **Markov + Adapt** | Markov for intent classification, Adapt for entity/keyword extraction |
-| **Markov + LLM** | Markov for fast local fallback when LLM is unavailable/slow |
-| **Markov + neural tagger** | Markov POS for speed-critical paths, neural for accuracy-critical |
-
 ## Performance Characteristics
 
 | Metric | Typical Value |
@@ -69,16 +60,6 @@ Most Markov chain implementations exist as teaching tools or one-off scripts. ma
 | Accuracy (POS tagging) | ~96% on Penn Treebank with supervised HMM |
 
 ## Recommendations
-
-### For OVOS developers
-
-- **Start with the pipeline plugin** (`ovos-markov-pipeline-plugin`) — it handles training, caching, and confidence scoring automatically
-- **Use `order=1` with `kneser_ney=True`** for small skill intent files (5-20 examples)
-- **Use `order=2` with `backoff=True`** when skills provide 50+ examples
-- **Enable `char_fallback=True`** when word-level scores are ambiguous
-- **Pair with Adapt** for entity extraction — Markov identifies the intent, Adapt extracts the slots
-
-### For general NLP
 
 - **Always use Kneser-Ney** — it's strictly better than Laplace on every metric
 - **Use sparse export** for any model where `V^order > 10,000` rows

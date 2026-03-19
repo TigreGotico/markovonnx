@@ -44,7 +44,11 @@ class MarkovChain:
         self.kneser_ney = kneser_ney
         self._counts: Dict[int, np.ndarray] = {}
         self._lower: Optional["MarkovChain"] = None
-        self._kn_discount: float = 0.75  # estimated after fit
+        # Modified KN: three discount levels (d1 for count==1, d2 for count==2, d3+ for count>=3)
+        self._kn_d1: float = 0.75
+        self._kn_d2: float = 0.75
+        self._kn_d3: float = 0.75
+        self._kn_discount: float = 0.75  # legacy single discount (average)
 
     # -- Context encoding -----------------------------------------------------
 
@@ -68,21 +72,37 @@ class MarkovChain:
                 self._counts[ci] = np.zeros(V, dtype=np.float32)
             self._counts[ci][nxt] += 1.0
 
-    def _estimate_kn_discount(self) -> float:
-        """Estimate the Kneser-Ney discount *d* from count-of-counts.
+    def _estimate_kn_discounts(self) -> None:
+        """Estimate Modified Kneser-Ney discounts from count-of-counts.
 
-        Uses the formula: d = n1 / (n1 + 2 * n2)
-        where n1 = number of n-grams occurring exactly once,
-              n2 = number of n-grams occurring exactly twice.
+        Uses three discount levels:
+        - d1 for n-grams with count == 1
+        - d2 for n-grams with count == 2
+        - d3 for n-grams with count >= 3
+
+        Formula (Chen & Goodman 1999):
+            Y = n1 / (n1 + 2*n2)
+            d1 = 1 - 2*Y*(n2/n1)
+            d2 = 2 - 3*Y*(n3/n2)
+            d3 = 3 - 4*Y*(n4/n3)
         """
-        n1 = 0
-        n2 = 0
+        n1 = n2 = n3 = n4 = 0
         for row in self._counts.values():
             n1 += int((row == 1).sum())
             n2 += int((row == 2).sum())
-        if n1 + 2 * n2 == 0:
-            return 0.75
-        return n1 / (n1 + 2 * n2)
+            n3 += int((row == 3).sum())
+            n4 += int((row == 4).sum())
+
+        if n1 == 0 or n1 + 2 * n2 == 0:
+            self._kn_d1 = self._kn_d2 = self._kn_d3 = 0.75
+        else:
+            Y = n1 / (n1 + 2 * n2)
+            self._kn_d1 = max(0.0, 1.0 - 2.0 * Y * (n2 / n1)) if n1 > 0 else 0.5
+            self._kn_d2 = max(0.0, 2.0 - 3.0 * Y * (n3 / n2)) if n2 > 0 else 1.0
+            self._kn_d3 = max(0.0, 3.0 - 4.0 * Y * (n4 / n3)) if n3 > 0 else 1.5
+
+        # Legacy single discount (weighted average for dense_matrix compatibility)
+        self._kn_discount = (self._kn_d1 + self._kn_d2 + self._kn_d3) / 3.0
 
     def fit(self, sequences: List[List]) -> None:
         """Train on an in-memory list of token sequences."""
@@ -91,7 +111,7 @@ class MarkovChain:
             self._update_from_sequence(self.vocab.encode(seq))
         elapsed = time.time() - t0
         if self.kneser_ney:
-            self._kn_discount = self._estimate_kn_discount()
+            self._estimate_kn_discounts()
         print(
             f"MarkovChain(order={self.order}) trained on "
             f"{len(sequences):,} sequences in {elapsed:.2f}s  |  "
@@ -128,7 +148,7 @@ class MarkovChain:
             self._update_from_sequence(self.vocab.encode(seq))
             n += 1
         if self.kneser_ney:
-            self._kn_discount = self._estimate_kn_discount()
+            self._estimate_kn_discounts()
         print(
             f"Streaming fit done: {n:,} sequences, "
             f"{len(self._counts):,} contexts  ({time.time() - t0:.1f}s)"
@@ -199,16 +219,26 @@ class MarkovChain:
         return np.full(V, 1.0 / V, dtype=np.float32)
 
     def _kn_probs(self, row: np.ndarray) -> np.ndarray:
-        """Compute Kneser-Ney smoothed probabilities for a single row."""
+        """Compute Modified Kneser-Ney smoothed probabilities for a single row.
+
+        Uses three discount levels: d1 (count==1), d2 (count==2), d3+ (count>=3).
+        """
         V = self.vocab.size
-        d = self._kn_discount
         total = row.sum()
         if total == 0:
             return np.full(V, 1.0 / V, dtype=np.float32)
-        n_positive = float((row > 0).sum())
-        lam = d * n_positive / total
-        discounted = np.maximum(row - d, 0.0) / total
-        return discounted + lam * (1.0 / V)
+
+        # Apply count-specific discounts
+        discounts = np.where(
+            row >= 3, self._kn_d3,
+            np.where(row == 2, self._kn_d2,
+                     np.where(row == 1, self._kn_d1, 0.0))
+        )
+        discounted = np.maximum(row - discounts, 0.0) / total
+
+        # Interpolation weight from total discount mass
+        discount_mass = float(np.sum(np.minimum(discounts, row))) / total
+        return discounted + discount_mass * (1.0 / V)
 
     # -- Sampling -------------------------------------------------------------
 

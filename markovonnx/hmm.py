@@ -139,13 +139,10 @@ class HiddenMarkovModel:
                 log_alpha[0] = log_pi + log_B[:, obs[0]]
 
                 for t in range(1, T):
-                    # log_alpha[t, j] = log( sum_i alpha[t-1,i] * A[i,j] ) + log B[j, obs[t]]
-                    # = logsumexp( log_alpha[t-1, :] + log_A[:, j] ) + log_B[j, obs[t]]
-                    for j in range(S):
-                        log_alpha[t, j] = (
-                            _logsumexp(log_alpha[t - 1] + log_A[:, j])
-                            + log_B[j, obs[t]]
-                        )
+                    # Vectorised: log_alpha[t-1, :, None] + log_A = [S, S]
+                    # logsumexp over axis=0 gives [S] for each target state
+                    scores = log_alpha[t - 1][:, None] + log_A  # [S, S]
+                    log_alpha[t] = _logsumexp(scores, axis=0) + log_B[:, obs[t]]
 
                 log_likelihood = float(_logsumexp(log_alpha[-1]))
                 total_log_like += log_likelihood
@@ -155,10 +152,10 @@ class HiddenMarkovModel:
                 log_beta[-1] = 0.0  # log(1)
 
                 for t in range(T - 2, -1, -1):
-                    for i in range(S):
-                        log_beta[t, i] = _logsumexp(
-                            log_A[i, :] + log_B[:, obs[t + 1]] + log_beta[t + 1]
-                        )
+                    # Vectorised: log_A + log_B[:, obs[t+1]] + log_beta[t+1] = [S, S]
+                    # logsumexp over axis=1 gives [S] for each source state
+                    scores = log_A + log_B[:, obs[t + 1]][None, :] + log_beta[t + 1][None, :]
+                    log_beta[t] = _logsumexp(scores, axis=1)
 
                 # -- Log-gamma: log P(state_t = i | observations) ------------
                 log_gamma = log_alpha + log_beta
@@ -220,10 +217,11 @@ class HiddenMarkovModel:
         delta[0] = log_pi + log_B[:, obs[0]]
 
         for t in range(1, T):
-            for s in range(S):
-                trans = delta[t - 1] + log_A[:, s]
-                psi[t, s] = trans.argmax()
-                delta[t, s] = trans.max() + log_B[s, obs[t]]
+            # Vectorised: delta[t-1, i] + log_A[i, j] for all (i, j)
+            # Shape: [S, 1] + [S, S] = [S, S] where axis-0 = source state
+            scores = delta[t - 1][:, None] + log_A  # [S, S]
+            psi[t] = scores.argmax(axis=0)           # best source for each target
+            delta[t] = scores.max(axis=0) + log_B[:, obs[t]]
 
         path = [int(delta[-1].argmax())]
         for t in range(T - 1, 0, -1):
