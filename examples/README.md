@@ -26,6 +26,15 @@ uv run python examples/01_char_text_generation.py
 | 14 | `14_sentence_segmentation.py` | Sentence boundary detection with char-level models |
 | 15 | `15_grapheme_to_phoneme.py` | G2P conversion with supervised HMM |
 | 16 | `16_audio_event_classifier.py` | Audio event classification (speech, bark, doorbell, knock, music, applause) |
+| 17 | `17_spam_classifier.py` | Spam/ham email classification (100% on test set) |
+| 18 | `18_authorship_attribution.py` | "Who wrote this?" — Hemingway vs Poe vs Austen |
+| 19 | `19_code_language_detector.py` | Programming language detection (Python/JS/Rust/Go, 100%) |
+| 20 | `20_anomaly_detection.py` | Log anomaly detection via perplexity thresholding (F1=1.0) |
+| 21 | `21_name_generator.py` | Fantasy, place, and sci-fi name generation |
+| 22 | `22_predictive_text.py` | Autocomplete / next-word prediction with probabilities |
+| 23 | `23_dna_motif_discovery.py` | Conserved DNA motif discovery (TATA box) |
+| 24 | `24_markov_music.py` | Melody generation from note sequences |
+| 25 | `25_style_scoring.py` | Text style scoring (formal/casual/technical/poetic) |
 
 ## Toy Datasets
 
