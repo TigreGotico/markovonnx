@@ -51,6 +51,18 @@ Use `markovonnx train-hmm corpus.tsv -o model.hmm.json [--n-states 8] [--smoothi
 ## How do I generate a PlatformIO project for ESP32?
 Pass `--platformio` to `markovonnx export` or `markovonnx train --export-c`. This writes `platformio.ini` and `src/main.cpp` next to the `.h` file with a ready-to-compile Arduino sketch.
 
+## How do I use predict_probs() vs _get_probs()?
+`MarkovChain.predict_probs(context)` is the public API — it is a direct wrapper of `_get_probs()` and applies backoff automatically. Use `predict_probs` in application code; `_get_probs` is internal.
+
+## How do I train an HMM without labelled data (unsupervised)?
+Use `markovonnx train-hmm corpus.txt --unsupervised [--n-iter 10]`. The corpus must have one token per line with blank lines between sequences (no tags required). Training uses Baum-Welch EM (`HiddenMarkovModel.fit_unsupervised`). Supervised CoNLL format is still the default when `--unsupervised` is absent.
+
+## How do I set a maximum model size for CI?
+Pass `--max-bytes N` to `markovonnx size-report`. The command exits with code 1 if the estimated C header size exceeds N bytes, enabling automated CI gates on model size budgets.
+
+## Do .markov archives preserve the backoff chain for C export?
+Yes — as of v0.5.0, `save_markov_archive` embeds `chain.json` with all counts and `_lower` backoff levels. `load_markov_archive` returns a `"chain"` key with the reconstructed `MarkovChain`, which can be passed directly to `export_markov_c_header`.
+
 ## Does `--backoff` work with streaming training?
 Yes — `fit_streaming` now recursively trains lower-order models (one extra pass per order level). Before v0.4.1, `--backoff` was silently ignored when streaming; only `fit()` built the lower chain.
 

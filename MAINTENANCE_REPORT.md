@@ -1,5 +1,17 @@
 # Maintenance Report
 
+## 2026-03-20 — v0.5.0 follow-up: public API + archive round-trip + CLI guards
+
+- **AI Model**: Claude Sonnet 4.6
+- **Actions Taken**:
+  - **feat**: `MarkovChain.predict_probs()` — public wrapper for `_get_probs()` (`markov.py:254`)
+  - **feat**: `MarkovChain.save()`/`load()` now persist `_lower` backoff chain inline under `"lower"` key (`markov.py:325`)
+  - **feat**: `.markov` archives include `chain.json`; `load_markov_archive` returns `"chain"` key with full `MarkovChain` (`archive.py:43,112`)
+  - **feat**: `size-report --max-bytes N` CI guard — exits 1 when model exceeds budget (`cli.py:368`, `size_report.py:113`)
+  - **feat**: `train-hmm --unsupervised` — plain-token corpus parsed, Baum-Welch via `fit_unsupervised()`; `--n-iter` controls EM iterations (`cli.py:102`)
+  - 247 tests passing (8 new tests across `test_archive.py`, `test_cli.py`, `test_markov.py`)
+- **Oversight**: All tests run and validated locally; human review before push
+
 ## 2026-03-20 — C export enhancements + new CLI subcommands (v0.5.0)
 
 - **AI Model**: Claude Sonnet 4.6
