@@ -29,6 +29,7 @@ pip install -e ".[test]"    # + pytest
 | [Text Generation](text-generation.md) | `generate_markov` auto-regressive generation |
 | [Portable Archives](archive.md) | `.markov` save/load format for model distribution |
 | [CLI](cli.md) | `markovonnx train/generate/info` command-line interface |
+| [ESP32 / Embedded](esp32.md) | C header export, memory budget, Arduino sketch example |
 | [OVOS Integration](ovos-integration.md) | All 8 OVOS plugins: config, training, recommendations |
 | [API Reference](api-reference.md) | Complete public API with signatures and source links |
 | [Architecture](architecture.md) | ONNX graph structure and design decisions |
@@ -45,5 +46,6 @@ pip install -e ".[test]"    # + pytest
 | `onnx_export` | `export_markov_onnx`, `export_markov_sparse_onnx`, `export_hmm_onnx`, `quantize_model` | `markovonnx/onnx_export.py` |
 | `onnx_runtime` | `MarkovONNXRuntime`, `HMMONNXRuntime` | `markovonnx/onnx_runtime.py` |
 | `generate` | `generate_markov` | `markovonnx/generate.py` |
+| `c_export` | `export_markov_c_header` | `markovonnx/c_export.py` |
 | `archive` | `save_markov_archive`, `load_markov_archive` | `markovonnx/archive.py` |
 | `cli` | `main` (entry point: `markovonnx`) | `markovonnx/cli.py` |

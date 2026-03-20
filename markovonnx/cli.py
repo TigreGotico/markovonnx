@@ -31,6 +31,14 @@ def cmd_train(args: argparse.Namespace) -> None:
 
     save_markov_archive(mc, args.output)
 
+    export_c = getattr(args, "export_c", "")
+    if export_c:
+        from markovonnx.c_export import export_markov_c_header
+        no_quantize = getattr(args, "no_quantize", False)
+        progmem = getattr(args, "progmem", False)
+        export_markov_c_header(mc, export_c, quantize=not no_quantize, progmem=progmem)
+        print(f"C header written: {export_c}")
+
 
 def cmd_generate(args: argparse.Namespace) -> None:
     """Generate text from a .markov archive."""
@@ -84,6 +92,9 @@ def main() -> None:
     p_train.add_argument("--max-vocab", type=int, default=0, help="Max vocabulary size (0=unlimited)")
     p_train.add_argument("--max-lines", type=int, default=0, help="Max corpus lines (0=unlimited)")
     p_train.add_argument("--backoff", action="store_true", help="Enable interpolated backoff")
+    p_train.add_argument("--export-c", metavar="PATH", default="", help="Also export a C header (.h) for embedded/ESP32 use")
+    p_train.add_argument("--no-quantize", action="store_true", help="Use float32 instead of uint8 in C header (larger)")
+    p_train.add_argument("--progmem", action="store_true", help="Annotate C arrays with ESP32 .rodata section attribute")
 
     # -- generate -------------------------------------------------------------
     p_gen = sub.add_parser("generate", help="Generate text from a .markov archive")

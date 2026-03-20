@@ -1,5 +1,19 @@
 # Maintenance Report
 
+## 2026-03-20 — ESP32 C header export (v0.4.0)
+
+- **AI Model**: Claude Sonnet 4.6
+- **Actions Taken**:
+  - Added `markovonnx/c_export.py` — `export_markov_c_header()` generating self-contained C99 headers
+  - INT8 quantisation (4× smaller than float32), PROGMEM `.rodata` annotation, binary-search lookup, CDF-walk sampler
+  - Context packing: N token IDs → single `uint64_t` key, sorted for O(log N) lookup
+  - Added `export_markov_c_header` to public API (`__init__.py`)
+  - Added `--export-c`, `--no-quantize`, `--progmem` flags to CLI `train` subcommand
+  - 27 new tests in `test/unittests/test_c_export.py` (syntax check via gcc, lookup correctness, quantisation precision)
+  - Created `docs/esp32.md` with memory budget table, Arduino sketch example, API reference
+  - 177 tests passing, 100% coverage on `c_export.py`
+- **Oversight**: All tests run and validated locally; human review before push
+
 ## 2026-03-19 — Sparse export, Kneser-Ney, log-space HMM (v0.3.0)
 
 - **AI Model**: Claude Opus 4.6

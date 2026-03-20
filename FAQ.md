@@ -30,5 +30,8 @@ Yes — `markovonnx train corpus.txt -o model.markov` and `markovonnx generate m
 ## Is the HMM numerically stable on long sequences?
 Yes — Baum-Welch operates entirely in log-space using logsumexp, preventing underflow even on sequences hundreds of tokens long.
 
+## Can I run a model on ESP32 or other microcontrollers?
+Yes — `export_markov_c_header(mc, "model.h")` generates a self-contained C99 header with no external dependencies. It includes static vocab and probability arrays, an inline binary-search lookup, and a CDF-walk sampler. Character order=1 models (~7 KB flash) fit comfortably; character order=2 with int8 quantisation (~84 KB) fits in 4 MB flash. See [docs/esp32.md](docs/esp32.md).
+
 ## Can I batch inference calls?
 Yes — `rt.predict_probs_batch(contexts)` processes multiple contexts and returns shape `(N, vocab_size)`.
