@@ -1,5 +1,20 @@
 # Maintenance Report
 
+## 2026-03-20 — HMM + Viterbi C header export
+
+- **AI Model**: Claude Sonnet 4.6
+- **Actions Taken**:
+  - Added `export_hmm_c_header()` to `c_export.py` — generates C99 header with
+    pre-computed `HMM_LOG_PI`, `HMM_LOG_A`, `HMM_LOG_B` float arrays and inline
+    `hmm_viterbi()` decoder (O(T·S²), no `logf()` at runtime)
+  - HMMs without `state_vocab` (unsupervised) export numeric state names
+  - `export_hmm_c_header` added to public API (`__init__.py`)
+  - 10 new tests (HMM structure, C syntax via gcc, Viterbi correctness vs Python)
+  - `docs/esp32.md` updated with HMM section, Arduino sketch, memory budget table
+  - `FAQ.md` updated with HMM/Viterbi Q&A entries
+  - 187 tests passing
+- **Oversight**: All tests run and validated locally; human review before push
+
 ## 2026-03-20 — ESP32 C header export (v0.4.0)
 
 - **AI Model**: Claude Sonnet 4.6

@@ -105,6 +105,75 @@ uint64_t key = ((uint64_t)prev_id << 16) | (uint64_t)curr_id;
 
 Raises `ValueError` if vocab size exceeds 65 535.
 
+## HMM + Viterbi export
+
+`export_hmm_c_header()` — `markovonnx/c_export.py:310`
+
+Exports a trained `HiddenMarkovModel` as a C99 header containing pre-computed
+log-probability matrices and an inline Viterbi decoder.
+
+```python
+from markovonnx import HiddenMarkovModel, export_hmm_c_header
+
+hmm = HiddenMarkovModel(n_states=8, obs_vocab=obs_vocab)
+hmm.fit_supervised(obs_seqs, tag_seqs)
+export_hmm_c_header(hmm, "hmm_model.h")
+export_hmm_c_header(hmm, "hmm_model.h", progmem=True)  # ESP32 flash
+```
+
+### Generated HMM header structure
+
+```c
+#define HMM_N_STATES  8
+#define HMM_OBS_SIZE  50
+
+static const char* HMM_OBS_VOCAB[HMM_OBS_SIZE] = { ... };
+static const char* HMM_STATE_VOCAB[HMM_N_STATES] = { ... };
+
+// Pre-computed log-probabilities (natural log, float32)
+static const float HMM_LOG_PI[HMM_N_STATES] = { ... };
+static const float HMM_LOG_A[HMM_N_STATES][HMM_N_STATES] = { ... };
+static const float HMM_LOG_B[HMM_N_STATES][HMM_OBS_SIZE] = { ... };
+
+// Inline Viterbi decoder — caller allocates delta, psi, path buffers
+static inline float hmm_viterbi(
+    const int* obs_ids, int T,
+    float* delta, int* psi, int* path);
+```
+
+### Arduino/ESP32 sketch example (HMM)
+
+```cpp
+#include "hmm_model.h"
+
+// Stack-allocate buffers for max sequence length
+#define MAX_T 64
+float delta[MAX_T * HMM_N_STATES];
+int   psi  [MAX_T * HMM_N_STATES];
+int   path [MAX_T];
+
+void tag_sequence(int* obs_ids, int T) {
+  float score = hmm_viterbi(obs_ids, T, delta, psi, path);
+  for (int t = 0; t < T; t++) {
+    Serial.printf("%s -> %s\n",
+      HMM_OBS_VOCAB[obs_ids[t]],
+      HMM_STATE_VOCAB[path[t]]);
+  }
+}
+```
+
+Log probabilities are pre-computed at export time — no `logf()` calls in the
+Viterbi inner loop.  The HMM Viterbi function is O(T · S²) where S is the
+number of states.
+
+### HMM memory budget
+
+| Config | HMM_LOG_A | HMM_LOG_B | Total flash |
+|--------|-----------|-----------|-------------|
+| 8 states, 50 obs | 1.3 KB | 1.6 KB | **~3 KB** |
+| 16 states, 80 obs | 4 KB | 5 KB | **~9 KB** |
+| 32 states, 200 obs | 16 KB | 25 KB | **~41 KB** |
+
 ## Limitations
 
 - No dynamic allocation; unseen contexts fall back to token 0 (see `markov_sample` null check).

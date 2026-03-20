@@ -10,12 +10,18 @@ from typing import List
 import numpy as np
 import pytest
 
+import numpy as np_mod  # aliased to avoid shadowing
+
 from markovonnx.c_export import (
     _collect_rows,
     _ctx_ids_from_index,
+    _fmt_float_row,
     _pack_key,
+    _render_hmm_header,
+    export_hmm_c_header,
     export_markov_c_header,
 )
+from markovonnx.hmm import HiddenMarkovModel
 from markovonnx.markov import MarkovChain
 from markovonnx.vocabulary import Vocabulary
 
@@ -457,3 +463,216 @@ def test_cli_train_export_c(tmp_path) -> None:
     assert header.exists()
     content = header.read_text()
     assert "#define MARKOV_VOCAB_SIZE" in content
+
+
+# ---------------------------------------------------------------------------
+# HMM C header export
+# ---------------------------------------------------------------------------
+
+
+def _make_hmm() -> HiddenMarkovModel:
+    """Build a small trained HMM for testing."""
+    obs_seqs = [["a", "b", "c"], ["b", "c", "a"], ["a", "a", "b"]]
+    tag_seqs = [["X", "Y", "Z"], ["Y", "Z", "X"], ["X", "X", "Y"]]
+    obs_vocab = Vocabulary(max_vocab=0)
+    obs_vocab.build_from_sequences(obs_seqs)
+    hmm = HiddenMarkovModel(n_states=3, obs_vocab=obs_vocab, smoothing=1e-5)
+    hmm.fit_supervised(obs_seqs, tag_seqs)
+    return hmm
+
+
+# --- file structure ---
+
+
+def test_hmm_export_creates_file() -> None:
+    """export_hmm_c_header writes a file at the given path."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        assert os.path.exists(path)
+        assert os.path.getsize(path) > 0
+    finally:
+        os.unlink(path)
+
+
+def test_hmm_export_required_symbols() -> None:
+    """Generated HMM header contains all mandatory macros and arrays."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        content = open(path).read()
+        for sym in [
+            "#pragma once",
+            "#define HMM_N_STATES",
+            "#define HMM_OBS_SIZE",
+            "HMM_OBS_VOCAB",
+            "HMM_STATE_VOCAB",
+            "HMM_LOG_PI",
+            "HMM_LOG_A",
+            "HMM_LOG_B",
+            "hmm_viterbi(",
+        ]:
+            assert sym in content, f"Missing: {sym}"
+    finally:
+        os.unlink(path)
+
+
+def test_hmm_export_n_states_macro() -> None:
+    """HMM_N_STATES macro matches hmm.n_states."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        content = open(path).read()
+        m = re.search(r"#define HMM_N_STATES\s+(\d+)", content)
+        assert m is not None
+        assert int(m.group(1)) == hmm.n_states
+    finally:
+        os.unlink(path)
+
+
+def test_hmm_export_obs_size_macro() -> None:
+    """HMM_OBS_SIZE macro matches obs_vocab.size."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        content = open(path).read()
+        m = re.search(r"#define HMM_OBS_SIZE\s+(\d+)", content)
+        assert m is not None
+        assert int(m.group(1)) == hmm.obs_vocab.size
+    finally:
+        os.unlink(path)
+
+
+def test_hmm_export_progmem() -> None:
+    """progmem=True inserts .rodata annotation."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path, progmem=True)
+        content = open(path).read()
+        assert ".rodata" in content
+    finally:
+        os.unlink(path)
+
+
+def test_hmm_export_no_state_vocab_uses_numeric() -> None:
+    """HMM without state_vocab exports numeric state names."""
+    obs_seqs = [["a", "b", "c"]]
+    obs_vocab = Vocabulary(max_vocab=0)
+    obs_vocab.build_from_sequences(obs_seqs)
+    hmm = HiddenMarkovModel(n_states=2, obs_vocab=obs_vocab)
+    # No fit_supervised → state_vocab is None
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        content = open(path).read()
+        # Should contain "0" and "1" as state labels
+        assert '"0"' in content or '"1"' in content
+    finally:
+        os.unlink(path)
+
+
+# --- C syntax validity ---
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "gcc"], capture_output=True).returncode != 0,
+    reason="gcc not available",
+)
+def test_hmm_export_valid_c_syntax() -> None:
+    """Generated HMM header passes gcc -fsyntax-only."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    c_path = ""
+    try:
+        export_hmm_c_header(hmm, path)
+        with tempfile.NamedTemporaryFile(suffix=".c", delete=False, mode="w") as cf:
+            cf.write(f'#include "{path}"\nint main(void) {{ return 0; }}\n')
+            c_path = cf.name
+        result = subprocess.run(
+            ["gcc", "-std=c99", "-fsyntax-only", c_path],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+    finally:
+        os.unlink(path)
+        if c_path and os.path.exists(c_path):
+            os.unlink(c_path)
+
+
+# --- Viterbi correctness ---
+
+
+def _py_viterbi(hmm: HiddenMarkovModel, obs_seq: List[str]) -> List[str]:
+    """Run Python Viterbi and return decoded state sequence."""
+    return hmm.viterbi(obs_seq)
+
+
+def _c_viterbi(hmm: HiddenMarkovModel, obs_seq: List[str]) -> List[int]:
+    """Simulate the C Viterbi algorithm in Python using HMM log matrices."""
+    import numpy as np
+    obs_ids = hmm.obs_vocab.encode(obs_seq)
+    T = len(obs_ids)
+    S = hmm.n_states
+    log_pi = np.log(np.asarray(hmm.pi, dtype=np.float64) + 1e-30)
+    log_A = np.log(np.asarray(hmm.A, dtype=np.float64) + 1e-30)
+    log_B = np.log(np.asarray(hmm.B, dtype=np.float64) + 1e-30)
+
+    delta = np.full((T, S), -np.inf)
+    psi = np.zeros((T, S), dtype=int)
+    delta[0] = log_pi + log_B[:, obs_ids[0]]
+
+    for t in range(1, T):
+        for s in range(S):
+            scores = delta[t - 1] + log_A[:, s]
+            best_q = int(scores.argmax())
+            delta[t, s] = scores[best_q] + log_B[s, obs_ids[t]]
+            psi[t, s] = best_q
+
+    path = [int(delta[-1].argmax())]
+    for t in range(T - 1, 0, -1):
+        path.append(psi[t, path[-1]])
+    path.reverse()
+    return path
+
+
+def test_viterbi_c_matches_python() -> None:
+    """C-simulated Viterbi produces same state path as Python HMM.viterbi()."""
+    hmm = _make_hmm()
+    for obs_seq in [["a", "b", "c"], ["b", "b", "a"], ["c", "a", "b"]]:
+        py_labels = _py_viterbi(hmm, obs_seq)
+        c_ids = _c_viterbi(hmm, obs_seq)
+        c_labels = hmm.state_vocab.decode(c_ids) if hmm.state_vocab else [str(i) for i in c_ids]
+        assert py_labels == c_labels, f"obs={obs_seq}: python={py_labels} c={c_labels}"
+
+
+def test_viterbi_single_token() -> None:
+    """Viterbi on a single-token sequence returns the argmax of log_pi + log_B[:,obs]."""
+    import numpy as np
+    hmm = _make_hmm()
+    obs_seq = ["a"]
+    py_labels = _py_viterbi(hmm, obs_seq)
+    c_ids = _c_viterbi(hmm, obs_seq)
+    c_labels = hmm.state_vocab.decode(c_ids) if hmm.state_vocab else [str(i) for i in c_ids]
+    assert py_labels == c_labels
+
+
+def test_fmt_float_row_format() -> None:
+    """_fmt_float_row produces valid C float literals."""
+    import numpy as np
+    row = np.array([0.1, 0.5, 0.4], dtype=np.float32)
+    result = _fmt_float_row(row)
+    parts = result.split(", ")
+    assert len(parts) == 3
+    assert all(p.endswith("f") for p in parts)

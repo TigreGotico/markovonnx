@@ -31,7 +31,10 @@ Yes — `markovonnx train corpus.txt -o model.markov` and `markovonnx generate m
 Yes — Baum-Welch operates entirely in log-space using logsumexp, preventing underflow even on sequences hundreds of tokens long.
 
 ## Can I run a model on ESP32 or other microcontrollers?
-Yes — `export_markov_c_header(mc, "model.h")` generates a self-contained C99 header with no external dependencies. It includes static vocab and probability arrays, an inline binary-search lookup, and a CDF-walk sampler. Character order=1 models (~7 KB flash) fit comfortably; character order=2 with int8 quantisation (~84 KB) fits in 4 MB flash. See [docs/esp32.md](docs/esp32.md).
+Yes — two C header exporters are provided.  `export_markov_c_header(mc, "model.h")` generates a self-contained C99 header with no external dependencies: static vocab and probability arrays, inline binary-search lookup, and CDF-walk sampler. `export_hmm_c_header(hmm, "model.h")` exports pre-computed log-probability matrices and an inline Viterbi decoder. Character order=1 Markov models fit in ~7 KB flash; HMMs with 8 states / 50 obs fit in ~3 KB. See [docs/esp32.md](docs/esp32.md).
+
+## Can I run Viterbi decoding on ESP32?
+Yes — `export_hmm_c_header(hmm, "model.h")` embeds `hmm_viterbi()` as an inline C function. It takes caller-allocated `delta` (float), `psi` (int), and `path` (int) buffers and runs in O(T·S²). Log probabilities are pre-computed at export time so no `logf()` is called at inference. State labels are recovered via `HMM_STATE_VOCAB[path[t]]`.
 
 ## Can I batch inference calls?
 Yes — `rt.predict_probs_batch(contexts)` processes multiple contexts and returns shape `(N, vocab_size)`.
