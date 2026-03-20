@@ -130,6 +130,28 @@ def test_collect_rows_count() -> None:
     assert len(rows) == len(mc._counts)
 
 
+def test_collect_rows_no_all_zero_uint8_rows() -> None:
+    """Normalization guard: no uint8 row should sum to zero after quantization."""
+    mc = _make_chain(order=1)
+    rows = _collect_rows(mc, mc.vocab.size, quantize=True)
+    for _, row in rows:
+        assert row.sum() > 0, "All-zero quantized row violates normalization guard"
+
+
+def test_collect_rows_normalization_guard_forced() -> None:
+    """Guard sets argmax token to 1 when all entries round to 0."""
+    # Build a chain where one row has near-zero probabilities
+    mc = _make_chain(order=1)
+    V = mc.vocab.size
+    # Manually inject a counts entry where all probs are tiny so quantization
+    # would otherwise round everything to 0.
+    ci = next(iter(mc._counts))
+    mc._counts[ci] = np.full(V, 1e-10)
+    rows = _collect_rows(mc, V, quantize=True)
+    for _, row in rows:
+        assert row.sum() > 0
+
+
 # ---------------------------------------------------------------------------
 # export_markov_c_header — file generation
 # ---------------------------------------------------------------------------

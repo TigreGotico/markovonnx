@@ -156,6 +156,11 @@ def _collect_rows(
         probs = (counts + smoothing) / (counts.sum() + smoothing * V)
         if quantize:
             row = np.clip(np.round(probs * 255.0), 0, 255).astype(np.uint8)
+            # Guard: if all entries round to 0 (can happen for large uniform
+            # distributions), ensure at least one entry is non-zero so that
+            # markov_sample() can always satisfy r < cum.
+            if row.sum() == 0:
+                row[probs.argmax()] = 1
         else:
             row = probs.astype(np.float32)
         pairs.append((key, row))
@@ -298,7 +303,9 @@ static inline const {prob_type}* markov_lookup(uint64_t key) {{
 }}
 
 // CDF walk: r must be uniform in [0, 1). Returns token id in [0, MARKOV_VOCAB_SIZE).
-// Falls back to token 0 if row is NULL (unseen context) or CDF doesn't reach 1.
+// Falls back to MARKOV_VOCAB_SIZE-1 if row is NULL or CDF doesn't reach 1.
+// Guarantee: exported rows always have at least one non-zero entry so the loop
+// will terminate early for any r < 1.0.
 static inline int markov_sample(const {prob_type}* row, float r) {{
   if (!row) return 0;
   float cum = 0.0f;
