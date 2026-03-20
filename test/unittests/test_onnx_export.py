@@ -156,3 +156,31 @@ class TestExportMarkovSparse:
             path = str(Path(tmpdir) / "kn_sparse.onnx")
             export_markov_sparse_onnx(mc, path)
             assert Path(path).exists()
+
+    def test_flat_index_lookup_mode_metadata(self) -> None:
+        """Small vocabulary uses flat-index O(1) lookup mode."""
+        mc = _trained_markov()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = str(Path(tmpdir) / "sparse.onnx")
+            export_markov_sparse_onnx(mc, path)
+            model = onnx.load(path)
+            meta = {p.key: p.value for p in model.metadata_props}
+            assert meta["lookup_mode"] == "flat-index O(1)"
+
+    def test_flat_index_inference_correct(self) -> None:
+        """Flat-index sparse export produces correct probabilities."""
+        import numpy as np
+        mc = _trained_markov()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dense_path = str(Path(tmpdir) / "dense.onnx")
+            sparse_path = str(Path(tmpdir) / "sparse.onnx")
+            export_markov_onnx(mc, dense_path)
+            export_markov_sparse_onnx(mc, sparse_path)
+            rt_dense = MarkovONNXRuntime(dense_path, mc.vocab, mc.order)
+            rt_sparse = MarkovONNXRuntime(sparse_path, mc.vocab, mc.order)
+            for ctx in [["a"], ["b"]]:
+                np.testing.assert_allclose(
+                    rt_dense.predict_probs(ctx),
+                    rt_sparse.predict_probs(ctx),
+                    atol=1e-4,
+                )
