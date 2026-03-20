@@ -36,5 +36,11 @@ Yes — two C header exporters are provided.  `export_markov_c_header(mc, "model
 ## Can I run Viterbi decoding on ESP32?
 Yes — `export_hmm_c_header(hmm, "model.h")` embeds `hmm_viterbi()` as an inline C function. It takes caller-allocated `delta` (float), `psi` (int), and `path` (int) buffers and runs in O(T·S²). Log probabilities are pre-computed at export time so no `logf()` is called at inference. State labels are recovered via `HMM_STATE_VOCAB[path[t]]`.
 
+## Does `--backoff` work with streaming training?
+Yes — `fit_streaming` now recursively trains lower-order models (one extra pass per order level). Before v0.4.1, `--backoff` was silently ignored when streaming; only `fit()` built the lower chain.
+
+## Why is sparse ONNX inference faster now?
+The sparse export uses a flat-index array (`flat_index[V^order]`) for O(1) context lookup via a single `Gather` op, replacing the O(N) linear scan (Equal + ArgMax). Falls back to linear scan only when `V^order > 5_000_000`.
+
 ## Can I batch inference calls?
 Yes — `rt.predict_probs_batch(contexts)` processes multiple contexts and returns shape `(N, vocab_size)`.

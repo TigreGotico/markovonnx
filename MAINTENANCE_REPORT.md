@@ -1,5 +1,17 @@
 # Maintenance Report
 
+## 2026-03-20 — Backlog tasks (v0.4.1)
+
+- **AI Model**: Claude Sonnet 4.6
+- **Actions Taken**:
+  - **fix**: `fit_streaming` now recursively trains backoff lower-order chains (was silently a no-op)
+  - **perf**: sparse ONNX lookup replaced with O(1) flat-index Gather (6 nodes vs 11); linear-scan fallback kept for V^order > 5M
+  - **feat**: C header export includes backoff chain arrays + `markov_sample_backoff()` when chain has `_lower`
+  - **feat**: `markovonnx export` CLI subcommand for post-training C header generation from saved JSON files
+  - **chore**: SUGGESTIONS.md pruned (vectorised Viterbi and KN smoothing were already implemented)
+  - 199 tests passing (12 new tests added across 3 test files)
+- **Oversight**: All tests run and validated locally; human review before push
+
 ## 2026-03-20 — HMM + Viterbi C header export
 
 - **AI Model**: Claude Sonnet 4.6

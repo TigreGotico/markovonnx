@@ -1,6 +1,5 @@
 # Suggestions
 
-1. **GPU-accelerated sparse lookup** — Replace the brute-force Equal scan in sparse export with a hash-based approach or custom ONNX operator for O(1) lookup.
-2. **Streaming backoff training** — `fit_streaming` doesn't currently train backoff models. Add support by collecting sequences into batches.
-3. **Vectorized Viterbi** — Current HMM Viterbi has a Python loop over states. Vectorizing the inner loop with NumPy broadcasting would improve speed.
-4. **Interpolated Kneser-Ney** — Current implementation uses absolute discounting. Modified KN with three discount levels (n1, n2, n3+) would improve quality.
+1. **GPU-accelerated sparse lookup** — Replace the ONNX flat-index Gather with a CUDA hash-table custom op for vocabularies where `V^order > 5 000 000` (currently falls back to linear scan).
+2. **C export: recursive backoff** — Currently only one level of backoff is exported to C headers. Add recursive embedding for order > 2 chains.
+3. **`train-hmm` CLI command** — Add a supervised HMM training subcommand that reads a tagged corpus (TSV) and saves `HiddenMarkovModel.save()` JSON, with `--export-c` option.
