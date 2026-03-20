@@ -91,6 +91,74 @@ def cmd_export(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_train_hmm(args: argparse.Namespace) -> None:
+    """Train an HMM from a CoNLL-style tagged corpus and save as JSON.
+
+    Corpus format: one ``obs TAB tag`` per line; blank lines separate sequences.
+    """
+    from markovonnx.hmm import HiddenMarkovModel
+    from markovonnx.vocabulary import Vocabulary
+
+    # Parse corpus
+    obs_seqs = []
+    tag_seqs = []
+    cur_obs: list = []
+    cur_tags: list = []
+    n_lines = 0
+
+    with open(args.corpus, encoding="utf-8") as fh:
+        for raw in fh:
+            if args.max_lines and n_lines >= args.max_lines:
+                break
+            line = raw.rstrip("\n")
+            if line.strip() == "":
+                if cur_obs:
+                    obs_seqs.append(cur_obs)
+                    tag_seqs.append(cur_tags)
+                    cur_obs = []
+                    cur_tags = []
+            else:
+                parts = line.split("\t", 1)
+                if len(parts) != 2:
+                    continue  # skip malformed lines
+                cur_obs.append(parts[0])
+                cur_tags.append(parts[1])
+                n_lines += 1
+
+    if cur_obs:
+        obs_seqs.append(cur_obs)
+        tag_seqs.append(cur_tags)
+
+    if not obs_seqs:
+        print("No sequences found in corpus", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Corpus: {len(obs_seqs)} sequences, {n_lines} tokens")
+
+    obs_vocab = Vocabulary(max_vocab=0)
+    obs_vocab.build_from_sequences(obs_seqs)
+    print(f"Observation vocabulary: {obs_vocab.size} tokens")
+
+    n_states = args.n_states
+    print(f"Training HiddenMarkovModel(n_states={n_states})...")
+    hmm = HiddenMarkovModel(
+        n_states=n_states,
+        obs_vocab=obs_vocab,
+        smoothing=args.smoothing,
+    )
+    hmm.fit_supervised(obs_seqs, tag_seqs)
+
+    hmm.save(args.output)
+    print(f"Model saved: {args.output}")
+
+    export_c = getattr(args, "export_c", "")
+    if export_c:
+        from markovonnx.c_export import export_hmm_c_header
+        progmem = getattr(args, "progmem", False)
+        export_hmm_c_header(hmm, export_c, progmem=progmem)
+        print(f"C header written: {export_c}")
+
+
 def cmd_size_report(args: argparse.Namespace) -> None:
     """Print a human-readable C-header size report for a saved model."""
     from markovonnx.size_report import format_hmm_report, format_markov_report
@@ -173,6 +241,18 @@ def main() -> None:
     p_info = sub.add_parser("info", help="Show metadata from a .markov archive")
     p_info.add_argument("archive", help="Path to .markov archive")
 
+    # -- train-hmm ------------------------------------------------------------
+    p_thmm = sub.add_parser(
+        "train-hmm", help="Train an HMM from a CoNLL-style tagged corpus"
+    )
+    p_thmm.add_argument("corpus", help="Path to CoNLL corpus (obs TAB tag, blank line = sequence boundary)")
+    p_thmm.add_argument("-o", "--output", default="model.hmm.json", help="Output JSON path")
+    p_thmm.add_argument("--n-states", type=int, default=8, help="Number of hidden states")
+    p_thmm.add_argument("--smoothing", type=float, default=1e-5, help="Laplace smoothing alpha")
+    p_thmm.add_argument("--export-c", metavar="PATH", default="", help="Also export a C header (.h)")
+    p_thmm.add_argument("--progmem", action="store_true", help="Add ESP32 .rodata section attribute to C header")
+    p_thmm.add_argument("--max-lines", type=int, default=0, help="Max corpus lines (0=unlimited)")
+
     # -- size-report ----------------------------------------------------------
     p_size = sub.add_parser("size-report", help="Show C header memory size breakdown for a model")
     p_size.add_argument("model", help="Path to MarkovChain JSON or HMM JSON")
@@ -194,6 +274,8 @@ def main() -> None:
         cmd_info(args)
     elif args.command == "size-report":
         cmd_size_report(args)
+    elif args.command == "train-hmm":
+        cmd_train_hmm(args)
     else:
         parser.print_help()
         sys.exit(1)

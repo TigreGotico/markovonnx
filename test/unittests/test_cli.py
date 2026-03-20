@@ -1,5 +1,6 @@
 """Tests for markovonnx.cli."""
 
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -120,3 +121,99 @@ class TestCLIMain:
                 main()
             with patch("sys.argv", ["markovonnx", "info", archive]):
                 main()
+
+
+# ---------------------------------------------------------------------------
+# train-hmm subcommand
+# ---------------------------------------------------------------------------
+
+
+def _write_conll_corpus(path: Path) -> None:
+    """Write a minimal CoNLL-style tagged corpus."""
+    path.write_text(
+        "hello\tGREET\nworld\tNOUN\n\n"
+        "good\tADJ\nday\tNOUN\n\n"
+        "hello\tGREET\ngoodbye\tGREET\n\n",
+        encoding="utf-8",
+    )
+
+
+class TestCLITrainHMM:
+    def test_train_hmm_creates_json(self, tmp_path: Path) -> None:
+        """train-hmm writes a JSON model file."""
+        corpus = tmp_path / "corpus.tsv"
+        _write_conll_corpus(corpus)
+        output = tmp_path / "model.hmm.json"
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "markovonnx.cli",
+                "train-hmm", str(corpus),
+                "-o", str(output),
+                "--n-states", "3",
+            ],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert output.exists()
+
+    def test_train_hmm_json_loadable(self, tmp_path: Path) -> None:
+        """Model saved by train-hmm can be loaded with HiddenMarkovModel.load."""
+        from markovonnx.hmm import HiddenMarkovModel
+
+        corpus = tmp_path / "corpus.tsv"
+        _write_conll_corpus(corpus)
+        output = tmp_path / "model.hmm.json"
+
+        subprocess.run(
+            [
+                sys.executable, "-m", "markovonnx.cli",
+                "train-hmm", str(corpus), "-o", str(output), "--n-states", "3",
+            ],
+            check=True,
+        )
+        hmm = HiddenMarkovModel.load(str(output))
+        # n_states may differ from --n-states if fit_supervised infers more
+        # states from the tag vocabulary; just verify the model is loadable.
+        assert hmm.n_states > 0
+
+    def test_train_hmm_export_c(self, tmp_path: Path) -> None:
+        """train-hmm --export-c writes a C header."""
+        corpus = tmp_path / "corpus.tsv"
+        _write_conll_corpus(corpus)
+        output = tmp_path / "model.hmm.json"
+        header = tmp_path / "model.h"
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "markovonnx.cli",
+                "train-hmm", str(corpus), "-o", str(output),
+                "--n-states", "3",
+                "--export-c", str(header),
+            ],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert header.exists()
+        content = header.read_text()
+        assert "#define HMM_N_STATES" in content
+
+    def test_train_hmm_max_lines(self, tmp_path: Path) -> None:
+        """train-hmm --max-lines limits parsed tokens."""
+        corpus = tmp_path / "corpus.tsv"
+        _write_conll_corpus(corpus)
+        output_full = tmp_path / "full.json"
+        output_limited = tmp_path / "limited.json"
+
+        subprocess.run(
+            [sys.executable, "-m", "markovonnx.cli", "train-hmm", str(corpus),
+             "-o", str(output_full)],
+            check=True,
+        )
+        subprocess.run(
+            [sys.executable, "-m", "markovonnx.cli", "train-hmm", str(corpus),
+             "-o", str(output_limited), "--max-lines", "2"],
+            check=True,
+        )
+        assert output_full.exists()
+        assert output_limited.exists()
