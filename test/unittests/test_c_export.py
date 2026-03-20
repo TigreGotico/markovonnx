@@ -841,6 +841,92 @@ def test_cli_export_hmm_c(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# --platformio flag
+# ---------------------------------------------------------------------------
+
+
+def test_platformio_markov_c_creates_files(tmp_path) -> None:
+    """export --platformio creates platformio.ini and src/main.cpp for markov-c."""
+    mc = _make_chain(order=1)
+    json_path = str(tmp_path / "model.json")
+    header_path = str(tmp_path / "model.h")
+    mc.save(json_path)
+
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "markovonnx.cli",
+            "export", json_path,
+            "--format", "markov-c",
+            "-o", header_path,
+            "--platformio",
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert os.path.exists(str(tmp_path / "platformio.ini"))
+    assert os.path.exists(str(tmp_path / "src" / "main.cpp"))
+
+
+def test_platformio_ini_content(tmp_path) -> None:
+    """platformio.ini contains [env:esp32dev] section."""
+    mc = _make_chain(order=1)
+    json_path = str(tmp_path / "model.json")
+    header_path = str(tmp_path / "model.h")
+    mc.save(json_path)
+
+    subprocess.run(
+        [sys.executable, "-m", "markovonnx.cli", "export", json_path,
+         "--format", "markov-c", "-o", header_path, "--platformio"],
+        check=True,
+    )
+    ini_content = open(str(tmp_path / "platformio.ini")).read()
+    assert "[env:esp32dev]" in ini_content
+    assert "espressif32" in ini_content
+
+
+def test_platformio_markov_main_cpp_content(tmp_path) -> None:
+    """src/main.cpp for markov-c references markov_sample."""
+    mc = _make_chain(order=1)
+    json_path = str(tmp_path / "model.json")
+    header_path = str(tmp_path / "model.h")
+    mc.save(json_path)
+
+    subprocess.run(
+        [sys.executable, "-m", "markovonnx.cli", "export", json_path,
+         "--format", "markov-c", "-o", header_path, "--platformio"],
+        check=True,
+    )
+    cpp_content = open(str(tmp_path / "src" / "main.cpp")).read()
+    assert "markov_sample" in cpp_content
+
+
+def test_platformio_hmm_c_creates_files(tmp_path) -> None:
+    """export --platformio creates platformio files for hmm-c."""
+    obs_seqs = [["a", "b", "c"]] * 3
+    tag_seqs = [["X", "Y", "Z"]] * 3
+    obs_vocab = Vocabulary(max_vocab=0)
+    obs_vocab.build_from_sequences(obs_seqs)
+    hmm = HiddenMarkovModel(n_states=3, obs_vocab=obs_vocab)
+    hmm.fit_supervised(obs_seqs, tag_seqs)
+
+    json_path = str(tmp_path / "hmm.json")
+    header_path = str(tmp_path / "hmm.h")
+    hmm.save(json_path)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "markovonnx.cli", "export", json_path,
+         "--format", "hmm-c", "-o", header_path, "--platformio"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert os.path.exists(str(tmp_path / "platformio.ini"))
+    cpp_content = open(str(tmp_path / "src" / "main.cpp")).read()
+    assert "hmm_forward_init" in cpp_content
+    assert "hmm_forward_step" in cpp_content
+    assert "hmm_best_state" in cpp_content
+
+
+# ---------------------------------------------------------------------------
 # HMM forward step: linear arrays and hmm_forward_init/step/best_state
 # ---------------------------------------------------------------------------
 
