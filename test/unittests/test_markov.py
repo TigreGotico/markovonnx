@@ -251,3 +251,52 @@ class TestFitStreamingBackoff:
         # Should not raise even for unseen 2-gram context
         result = mc.sample(["z", "z"])
         assert result in vocab.id2tok
+
+
+
+class TestPredictProbs:
+    def test_predict_probs_sums_to_one(self) -> None:
+        """predict_probs returns a probability vector summing to ~1."""
+        import numpy as np
+        from markovonnx.markov import MarkovChain
+        from markovonnx.vocabulary import Vocabulary
+
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a", "b"]] * 10
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab)
+        mc.fit(seqs)
+
+        probs = mc.predict_probs(["a"])
+        assert probs.shape == (vocab.size,)
+        assert abs(probs.sum() - 1.0) < 1e-5
+
+    def test_predict_probs_matches_get_probs(self) -> None:
+        """predict_probs is identical to _get_probs."""
+        import numpy as np
+        from markovonnx.markov import MarkovChain
+        from markovonnx.vocabulary import Vocabulary
+
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c"]] * 5
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab)
+        mc.fit(seqs)
+
+        ctx = ["a"]
+        np.testing.assert_array_equal(mc.predict_probs(ctx), mc._get_probs(ctx))
+
+    def test_predict_probs_backoff(self) -> None:
+        """predict_probs falls back to lower-order model for unseen context."""
+        from markovonnx.markov import MarkovChain
+        from markovonnx.vocabulary import Vocabulary
+
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a"]] * 10
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=2, vocab=vocab, backoff=True)
+        mc.fit(seqs)
+
+        # "z" is in vocab? No — use known tokens, but unseen 2-gram context
+        probs = mc.predict_probs(["c", "c"])  # unseen 2-gram
+        assert abs(probs.sum() - 1.0) < 1e-5

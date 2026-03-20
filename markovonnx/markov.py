@@ -249,6 +249,22 @@ class MarkovChain:
         discount_mass = float(np.sum(np.minimum(discounts, row))) / total
         return discounted + discount_mass * (1.0 / V)
 
+    # -- Public probability API -----------------------------------------------
+
+    def predict_probs(self, context: List) -> np.ndarray:
+        """Return smoothed probability vector for *context*.
+
+        Public wrapper around :meth:`_get_probs`.  Applies backoff to
+        lower-order models for unseen contexts when *backoff* was enabled.
+
+        Args:
+            context: Token sequence (at least *order* tokens long).
+
+        Returns:
+            Float32 array of shape ``(vocab_size,)`` summing to 1.
+        """
+        return self._get_probs(context)
+
     # -- Sampling -------------------------------------------------------------
 
     def sample(self, context: List, temperature: float = 1.0) -> object:
@@ -306,7 +322,7 @@ class MarkovChain:
         import json
         from pathlib import Path as _Path
         _Path(path).parent.mkdir(parents=True, exist_ok=True)
-        data = {
+        data: dict = {
             "order": self.order,
             "smoothing": self.smoothing,
             "backoff": self.backoff,
@@ -317,6 +333,17 @@ class MarkovChain:
             "vocab": self.vocab.to_dict(),
             "counts": {str(k): v.tolist() for k, v in self._counts.items()},
         }
+        if self._lower is not None:
+            data["lower"] = {
+                "order": self._lower.order,
+                "smoothing": self._lower.smoothing,
+                "backoff": self._lower.backoff,
+                "kneser_ney": self._lower.kneser_ney,
+                "kn_d1": self._lower._kn_d1,
+                "kn_d2": self._lower._kn_d2,
+                "kn_d3": self._lower._kn_d3,
+                "counts": {str(k): v.tolist() for k, v in self._lower._counts.items()},
+            }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f)
 
@@ -346,4 +373,19 @@ class MarkovChain:
         mc._kn_d3 = data.get("kn_d3", 0.75)
         mc._kn_discount = (mc._kn_d1 + mc._kn_d2 + mc._kn_d3) / 3.0
         mc._counts = {int(k): np.array(v, dtype=np.float32) for k, v in data["counts"].items()}
+        if "lower" in data:
+            lower_data = data["lower"]
+            lower = cls(
+                order=lower_data["order"],
+                vocab=vocab,
+                smoothing=lower_data["smoothing"],
+                backoff=lower_data.get("backoff", True),
+                kneser_ney=lower_data.get("kneser_ney", False),
+            )
+            lower._kn_d1 = lower_data.get("kn_d1", 0.75)
+            lower._kn_d2 = lower_data.get("kn_d2", 0.75)
+            lower._kn_d3 = lower_data.get("kn_d3", 0.75)
+            lower._kn_discount = (lower._kn_d1 + lower._kn_d2 + lower._kn_d3) / 3.0
+            lower._counts = {int(k): np.array(v, dtype=np.float32) for k, v in lower_data["counts"].items()}
+            mc._lower = lower
         return mc
