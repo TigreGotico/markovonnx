@@ -26,11 +26,21 @@ export_markov_c_header(mc, "markov_model.h", quantize=False)      # float32
 export_markov_c_header(mc, "markov_model.h", progmem=True)        # ESP32 .rodata section
 ```
 
-CLI:
+CLI (during training):
 
 ```bash
 markovonnx train corpus.txt -o model.markov --export-c markov_model.h
 markovonnx train corpus.txt -o model.markov --export-c markov_model.h --no-quantize --progmem
+```
+
+CLI (from saved model files):
+
+```bash
+# MarkovChain JSON (saved via MarkovChain.save())
+markovonnx export model.json --format markov-c -o markov_model.h
+
+# HMM JSON (saved via HiddenMarkovModel.save())
+markovonnx export model.hmm.json --format hmm-c -o hmm_model.h --progmem
 ```
 
 ## Generated header structure
@@ -174,9 +184,20 @@ number of states.
 | 16 states, 80 obs | 4 KB | 5 KB | **~9 KB** |
 | 32 states, 200 obs | 16 KB | 25 KB | **~41 KB** |
 
+## Backoff chain in C headers
+
+If the `MarkovChain` was trained with `backoff=True`, one level of backoff is automatically included in the generated header:
+
+```c
+// Tries full-order lookup, falls back to lower-order, then returns token 0.
+static inline int markov_sample_backoff(uint64_t key, float r);
+```
+
+The lower-order key is extracted by masking the high bits of `key`. Only one backoff level is exported; deeper chains are silently ignored.
+
 ## Limitations
 
 - No dynamic allocation; unseen contexts fall back to token 0 (see `markov_sample` null check).
-- No backoff chain in C; only the top-level model is exported.
+- Only one level of C backoff exported; order > 2 chains with deep backoff are truncated.
 - Vocab strings are UTF-8 char pointers; ensure flash encoding matches sketch charset.
 - Use PlatformIO for ESP32 build integration; ESP-IDF CMake integration is out of scope.

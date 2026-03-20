@@ -676,3 +676,143 @@ def test_fmt_float_row_format() -> None:
     parts = result.split(", ")
     assert len(parts) == 3
     assert all(p.endswith("f") for p in parts)
+
+
+# ---------------------------------------------------------------------------
+# C export — backoff chain
+# ---------------------------------------------------------------------------
+
+
+def _make_chain_backoff(order: int = 2) -> MarkovChain:
+    """Build a trained MarkovChain with backoff enabled."""
+    corpus = [list("abcabc"), list("bbbccc"), list("abcbc")]
+    vocab = Vocabulary(max_vocab=0)
+    vocab.build_from_sequences(corpus)
+    mc = MarkovChain(order=order, vocab=vocab, smoothing=1e-5, backoff=True)
+    mc.fit(corpus)
+    return mc
+
+
+def test_backoff_export_contains_lower_arrays() -> None:
+    """Chain with backoff exports MARKOV_KEYS_LOWER and MARKOV_PROBS_LOWER."""
+    mc = _make_chain_backoff(order=2)
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_markov_c_header(mc, path)
+        content = open(path).read()
+        assert "MARKOV_KEYS_LOWER" in content
+        assert "MARKOV_PROBS_LOWER" in content
+        assert "MARKOV_SPARSE_ROWS_LOWER" in content
+        assert "markov_lookup_lower(" in content
+        assert "markov_sample_backoff(" in content
+    finally:
+        os.unlink(path)
+
+
+def test_no_backoff_export_no_lower_arrays() -> None:
+    """Chain without backoff does not emit lower-order arrays."""
+    mc = _make_chain(order=2)
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_markov_c_header(mc, path)
+        content = open(path).read()
+        assert "MARKOV_KEYS_LOWER" not in content
+        assert "markov_sample_backoff" not in content
+    finally:
+        os.unlink(path)
+
+
+def test_backoff_header_comment_flags_backoff_true() -> None:
+    """Header comment line says backoff=true when backoff chain present."""
+    mc = _make_chain_backoff(order=2)
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_markov_c_header(mc, path)
+        content = open(path).read()
+        assert "backoff=true" in content
+    finally:
+        os.unlink(path)
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "gcc"], capture_output=True).returncode != 0,
+    reason="gcc not available",
+)
+def test_backoff_header_valid_c_syntax() -> None:
+    """Backoff C header passes gcc -fsyntax-only."""
+    mc = _make_chain_backoff(order=2)
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    c_path = ""
+    try:
+        export_markov_c_header(mc, path)
+        with tempfile.NamedTemporaryFile(suffix=".c", delete=False, mode="w") as cf:
+            cf.write(f'#include "{path}"\nint main(void) {{ return 0; }}\n')
+            c_path = cf.name
+        result = subprocess.run(
+            ["gcc", "-std=c99", "-fsyntax-only", c_path],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+    finally:
+        os.unlink(path)
+        if c_path and os.path.exists(c_path):
+            os.unlink(c_path)
+
+
+# ---------------------------------------------------------------------------
+# CLI export subcommand
+# ---------------------------------------------------------------------------
+
+
+def test_cli_export_markov_c(tmp_path) -> None:
+    """markovonnx export --format markov-c writes a C header from MarkovChain JSON."""
+    mc = _make_chain(order=1)
+    json_path = str(tmp_path / "model.json")
+    header_path = str(tmp_path / "model.h")
+    mc.save(json_path)
+
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "markovonnx.cli",
+            "export", json_path,
+            "--format", "markov-c",
+            "-o", header_path,
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert os.path.exists(header_path)
+    content = open(header_path).read()
+    assert "#define MARKOV_VOCAB_SIZE" in content
+
+
+def test_cli_export_hmm_c(tmp_path) -> None:
+    """markovonnx export --format hmm-c writes a C header from HMM JSON."""
+    obs_seqs = [["a", "b", "c"]] * 3
+    tag_seqs = [["X", "Y", "Z"]] * 3
+    obs_vocab = Vocabulary(max_vocab=0)
+    obs_vocab.build_from_sequences(obs_seqs)
+    hmm = HiddenMarkovModel(n_states=3, obs_vocab=obs_vocab)
+    hmm.fit_supervised(obs_seqs, tag_seqs)
+
+    json_path = str(tmp_path / "hmm.json")
+    header_path = str(tmp_path / "hmm.h")
+    hmm.save(json_path)
+
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "markovonnx.cli",
+            "export", json_path,
+            "--format", "hmm-c",
+            "-o", header_path,
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert os.path.exists(header_path)
+    content = open(header_path).read()
+    assert "#define HMM_N_STATES" in content
