@@ -58,6 +58,39 @@ def cmd_generate(args: argparse.Namespace) -> None:
     print(text)
 
 
+def cmd_export(args: argparse.Namespace) -> None:
+    """Export a saved model to a C header file.
+
+    Accepts:
+      - ``markov-c``: a JSON file saved via ``MarkovChain.save()``
+      - ``hmm-c``:    a JSON file saved via ``HiddenMarkovModel.save()``
+
+    To export directly after training without a separate save step, use
+    ``markovonnx train --export-c`` instead.
+    """
+    src = args.source
+    out = args.output
+    fmt = args.format
+    no_quantize = getattr(args, "no_quantize", False)
+    progmem = getattr(args, "progmem", False)
+
+    if fmt == "markov-c":
+        from markovonnx.c_export import export_markov_c_header
+        from markovonnx.markov import MarkovChain
+        mc = MarkovChain.load(src)
+        export_markov_c_header(mc, out, quantize=not no_quantize, progmem=progmem)
+        print(f"C header written: {out}")
+    elif fmt == "hmm-c":
+        from markovonnx.c_export import export_hmm_c_header
+        from markovonnx.hmm import HiddenMarkovModel
+        hmm = HiddenMarkovModel.load(src)
+        export_hmm_c_header(hmm, out, progmem=progmem)
+        print(f"HMM C header written: {out}")
+    else:
+        print(f"Unknown format: {fmt}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_info(args: argparse.Namespace) -> None:
     """Show metadata from a .markov archive."""
     import json
@@ -104,6 +137,17 @@ def main() -> None:
     p_gen.add_argument("--temperature", type=float, default=0.7, help="Sampling temperature")
     p_gen.add_argument("--mode", choices=["char", "word"], default="char", help="Tokenization mode")
 
+    # -- export ---------------------------------------------------------------
+    p_export = sub.add_parser("export", help="Export a saved model to C header")
+    p_export.add_argument("source", help="Path to .markov archive (markov-c) or HMM JSON (hmm-c)")
+    p_export.add_argument("-o", "--output", required=True, help="Output .h file path")
+    p_export.add_argument(
+        "--format", choices=["markov-c", "hmm-c"], default="markov-c",
+        help="Output format: markov-c or hmm-c (default: markov-c)",
+    )
+    p_export.add_argument("--no-quantize", action="store_true", help="Use float32 instead of uint8 (markov-c only)")
+    p_export.add_argument("--progmem", action="store_true", help="Add ESP32 .rodata section attribute")
+
     # -- info -----------------------------------------------------------------
     p_info = sub.add_parser("info", help="Show metadata from a .markov archive")
     p_info.add_argument("archive", help="Path to .markov archive")
@@ -113,6 +157,8 @@ def main() -> None:
         cmd_train(args)
     elif args.command == "generate":
         cmd_generate(args)
+    elif args.command == "export":
+        cmd_export(args)
     elif args.command == "info":
         cmd_info(args)
     else:
