@@ -153,6 +153,15 @@ class MarkovChain:
             f"Streaming fit done: {n:,} sequences, "
             f"{len(self._counts):,} contexts  ({time.time() - t0:.1f}s)"
         )
+        if self.backoff and self.order > 1:
+            self._lower = MarkovChain(
+                order=self.order - 1,
+                vocab=self.vocab,
+                smoothing=self.smoothing,
+                backoff=True,
+                kneser_ney=self.kneser_ney,
+            )
+            self._lower.fit_streaming(path, tokenize_fn, max_lines)
 
     # -- Dense matrix (needed for ONNX export) --------------------------------
 

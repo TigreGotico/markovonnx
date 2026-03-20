@@ -197,3 +197,57 @@ class TestMarkovChain:
         mc = MarkovChain(order=1, vocab=vocab, kneser_ney=True)
         mc.fit_streaming(path, tokenize_fn=char_tokenize)
         assert 0 < mc._kn_discount < 1.0
+
+
+class TestFitStreamingBackoff:
+    def test_fit_streaming_creates_lower(self, tmp_path) -> None:
+        """fit_streaming with backoff=True populates _lower chain."""
+        import tempfile
+        from markovonnx.tokenizers import char_tokenize
+        corpus = tmp_path / "corpus.txt"
+        corpus.write_text("abcabc\nbbbccc\n")
+        vocab = Vocabulary()
+        vocab.build_streaming(str(corpus), tokenize_fn=char_tokenize)
+        mc = MarkovChain(order=2, vocab=vocab, backoff=True)
+        mc.fit_streaming(str(corpus), tokenize_fn=char_tokenize)
+        assert mc._lower is not None
+        assert mc._lower.order == 1
+        assert len(mc._lower._counts) > 0
+
+    def test_fit_streaming_backoff_lower_trained(self, tmp_path) -> None:
+        """Lower-order chain trained during streaming has correct order."""
+        from markovonnx.tokenizers import char_tokenize
+        corpus = tmp_path / "corpus.txt"
+        corpus.write_text("abcabc\nbbbccc\n")
+        vocab = Vocabulary()
+        vocab.build_streaming(str(corpus), tokenize_fn=char_tokenize)
+        mc = MarkovChain(order=3, vocab=vocab, backoff=True)
+        mc.fit_streaming(str(corpus), tokenize_fn=char_tokenize)
+        assert mc._lower is not None
+        assert mc._lower.order == 2
+        assert mc._lower._lower is not None
+        assert mc._lower._lower.order == 1
+
+    def test_fit_streaming_no_backoff_no_lower(self, tmp_path) -> None:
+        """fit_streaming without backoff leaves _lower as None."""
+        from markovonnx.tokenizers import char_tokenize
+        corpus = tmp_path / "corpus.txt"
+        corpus.write_text("abcabc\n")
+        vocab = Vocabulary()
+        vocab.build_streaming(str(corpus), tokenize_fn=char_tokenize)
+        mc = MarkovChain(order=2, vocab=vocab, backoff=False)
+        mc.fit_streaming(str(corpus), tokenize_fn=char_tokenize)
+        assert mc._lower is None
+
+    def test_fit_streaming_backoff_sample_uses_lower(self, tmp_path) -> None:
+        """Backoff chain is used for unseen contexts after streaming fit."""
+        from markovonnx.tokenizers import char_tokenize
+        corpus = tmp_path / "corpus.txt"
+        corpus.write_text("abcabc\nbbbccc\n")
+        vocab = Vocabulary()
+        vocab.build_streaming(str(corpus), tokenize_fn=char_tokenize)
+        mc = MarkovChain(order=2, vocab=vocab, backoff=True)
+        mc.fit_streaming(str(corpus), tokenize_fn=char_tokenize)
+        # Should not raise even for unseen 2-gram context
+        result = mc.sample(["z", "z"])
+        assert result in vocab.id2tok
