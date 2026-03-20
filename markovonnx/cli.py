@@ -108,6 +108,7 @@ def cmd_train_hmm(args: argparse.Namespace) -> None:
     from markovonnx.vocabulary import Vocabulary
 
     # Parse corpus
+    unsupervised = getattr(args, "unsupervised", False)
     obs_seqs = []
     tag_seqs = []
     cur_obs: list = []
@@ -122,20 +123,25 @@ def cmd_train_hmm(args: argparse.Namespace) -> None:
             if line.strip() == "":
                 if cur_obs:
                     obs_seqs.append(cur_obs)
-                    tag_seqs.append(cur_tags)
+                    if not unsupervised:
+                        tag_seqs.append(cur_tags)
                     cur_obs = []
                     cur_tags = []
             else:
-                parts = line.split("\t", 1)
-                if len(parts) != 2:
-                    continue  # skip malformed lines
-                cur_obs.append(parts[0])
-                cur_tags.append(parts[1])
+                if unsupervised:
+                    cur_obs.append(line.strip())
+                else:
+                    parts = line.split("\t", 1)
+                    if len(parts) != 2:
+                        continue  # skip malformed lines
+                    cur_obs.append(parts[0])
+                    cur_tags.append(parts[1])
                 n_lines += 1
 
     if cur_obs:
         obs_seqs.append(cur_obs)
-        tag_seqs.append(cur_tags)
+        if not unsupervised:
+            tag_seqs.append(cur_tags)
 
     if not obs_seqs:
         print("No sequences found in corpus", file=sys.stderr)
@@ -154,7 +160,12 @@ def cmd_train_hmm(args: argparse.Namespace) -> None:
         obs_vocab=obs_vocab,
         smoothing=args.smoothing,
     )
-    hmm.fit_supervised(obs_seqs, tag_seqs)
+    if getattr(args, "unsupervised", False):
+        n_iter = getattr(args, "n_iter", 10)
+        print(f"Baum-Welch unsupervised training (n_iter={n_iter})...")
+        hmm.fit_unsupervised(obs_seqs, n_iter=n_iter)
+    else:
+        hmm.fit_supervised(obs_seqs, tag_seqs)
 
     hmm.save(args.output)
     print(f"Model saved: {args.output}")
@@ -241,21 +252,41 @@ void loop() {{}}
 
 
 def cmd_size_report(args: argparse.Namespace) -> None:
-    """Print a human-readable C-header size report for a saved model."""
-    from markovonnx.size_report import format_hmm_report, format_markov_report
+    """Print a human-readable C-header size report for a saved model.
+
+    Exits with code 1 if ``--max-bytes`` is set and the model exceeds it.
+    """
+    from markovonnx.size_report import (
+        check_max_bytes,
+        format_hmm_report,
+        format_markov_report,
+        hmm_c_sizes,
+        markov_c_sizes,
+    )
 
     fmt = args.format
     no_quantize = getattr(args, "no_quantize", False)
     progmem = getattr(args, "progmem", False)
+    max_bytes = getattr(args, "max_bytes", 0)
 
     if fmt == "markov":
         from markovonnx.markov import MarkovChain
         chain = MarkovChain.load(args.model)
         print(format_markov_report(chain, quantize=not no_quantize, progmem=progmem))
+        if max_bytes:
+            sizes = markov_c_sizes(chain, quantize=not no_quantize)
+            if not check_max_bytes(sizes, max_bytes):
+                print(f"FAIL: model size {sizes['total']} bytes exceeds --max-bytes {max_bytes}", file=sys.stderr)
+                sys.exit(1)
     elif fmt == "hmm":
         from markovonnx.hmm import HiddenMarkovModel
         hmm = HiddenMarkovModel.load(args.model)
         print(format_hmm_report(hmm, progmem=progmem))
+        if max_bytes:
+            sizes = hmm_c_sizes(hmm)
+            if not check_max_bytes(sizes, max_bytes):
+                print(f"FAIL: model size {sizes['total']} bytes exceeds --max-bytes {max_bytes}", file=sys.stderr)
+                sys.exit(1)
     else:
         print(f"Unknown format: {fmt}", file=sys.stderr)
         sys.exit(1)
@@ -336,6 +367,10 @@ def main() -> None:
     p_thmm.add_argument("--progmem", action="store_true", help="Add ESP32 .rodata section attribute to C header")
     p_thmm.add_argument("--max-lines", type=int, default=0, help="Max corpus lines (0=unlimited)")
     p_thmm.add_argument("--platformio", action="store_true", help="Generate platformio.ini + src/main.cpp alongside --export-c")
+    p_thmm.add_argument("--unsupervised", action="store_true",
+                        help="Baum-Welch EM training; corpus is one token per line (no tags required)")
+    p_thmm.add_argument("--n-iter", type=int, default=10,
+                        help="EM iterations for --unsupervised (default: 10)")
 
     # -- size-report ----------------------------------------------------------
     p_size = sub.add_parser("size-report", help="Show C header memory size breakdown for a model")
@@ -346,6 +381,8 @@ def main() -> None:
     )
     p_size.add_argument("--no-quantize", action="store_true", help="Assume float32 probs (markov only)")
     p_size.add_argument("--progmem", action="store_true", help="Show Flash-only fit check")
+    p_size.add_argument("--max-bytes", type=int, default=0,
+                        help="Exit 1 if total C header size exceeds this many bytes (0=disabled)")
 
     args = parser.parse_args()
     if args.command == "train":

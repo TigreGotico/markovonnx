@@ -110,6 +110,22 @@ def hmm_c_sizes(hmm: "HiddenMarkovModel") -> Dict[str, int]:
     return sizes
 
 
+def check_max_bytes(sizes: Dict[str, int], max_bytes: int) -> bool:
+    """Return ``True`` if the model fits within *max_bytes*, ``False`` otherwise.
+
+    Intended for CI gates: call this after :func:`markov_c_sizes` or
+    :func:`hmm_c_sizes` and exit non-zero if it returns ``False``.
+
+    Args:
+        sizes: Dict returned by :func:`markov_c_sizes` or :func:`hmm_c_sizes`.
+        max_bytes: Maximum allowed total byte count.
+
+    Returns:
+        ``True`` if ``sizes["total"] <= max_bytes``.
+    """
+    return int(sizes["total"]) <= max_bytes
+
+
 def _fit_line(label: str, total: int, budget: int) -> str:
     """Return a single ESP32 fit-check line.
 

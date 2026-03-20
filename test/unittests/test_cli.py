@@ -217,3 +217,74 @@ class TestCLITrainHMM:
         )
         assert output_full.exists()
         assert output_limited.exists()
+
+    def test_train_hmm_unsupervised(self, tmp_path: Path) -> None:
+        """train-hmm --unsupervised accepts plain-token corpus (no tags)."""
+        corpus = tmp_path / "obs.txt"
+        # One token per line, blank lines between sequences
+        corpus.write_text(
+            "hello\nworld\n\ngood\nday\n\nhello\ngoodbye\n\n",
+            encoding="utf-8",
+        )
+        output = tmp_path / "model_unsup.hmm.json"
+
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "markovonnx.cli",
+                "train-hmm", str(corpus),
+                "-o", str(output),
+                "--n-states", "2",
+                "--unsupervised", "--n-iter", "3",
+            ],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert output.exists()
+
+
+# ---------------------------------------------------------------------------
+# size-report --max-bytes
+# ---------------------------------------------------------------------------
+
+
+class TestCLISizeReportMaxBytes:
+    def _train_markov_json(self, tmp_path: Path) -> Path:
+        """Train a small MarkovChain and save as JSON for size-report."""
+        from markovonnx.markov import MarkovChain
+        from markovonnx.vocabulary import Vocabulary
+
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a"]] * 5
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=1, vocab=vocab, smoothing=1e-5)
+        mc.fit(seqs)
+        out = tmp_path / "model.json"
+        mc.save(str(out))
+        return out
+
+    def test_max_bytes_passes_when_under_limit(self, tmp_path: Path) -> None:
+        model_path = self._train_markov_json(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "markovonnx.cli",
+                "size-report", str(model_path),
+                "--format", "markov",
+                "--max-bytes", "10000000",  # 10 MB — definitely fits
+            ],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+
+    def test_max_bytes_fails_when_over_limit(self, tmp_path: Path) -> None:
+        model_path = self._train_markov_json(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "markovonnx.cli",
+                "size-report", str(model_path),
+                "--format", "markov",
+                "--max-bytes", "1",  # 1 byte — always fails
+            ],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 1
+        assert "FAIL" in result.stderr
