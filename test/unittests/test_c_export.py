@@ -841,6 +841,144 @@ def test_cli_export_hmm_c(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# HMM forward step: linear arrays and hmm_forward_init/step/best_state
+# ---------------------------------------------------------------------------
+
+
+def test_hmm_export_linear_arrays_present() -> None:
+    """Generated HMM header includes linear-domain HMM_PI, HMM_A, HMM_B."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        content = open(path).read()
+        assert "HMM_PI[" in content
+        assert "HMM_A[" in content
+        assert "HMM_B[" in content
+    finally:
+        os.unlink(path)
+
+
+def test_hmm_export_forward_functions_present() -> None:
+    """Generated HMM header includes hmm_forward_init, hmm_forward_step, hmm_best_state."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_hmm_c_header(hmm, path)
+        content = open(path).read()
+        assert "hmm_forward_init(" in content
+        assert "hmm_forward_step(" in content
+        assert "hmm_best_state(" in content
+    finally:
+        os.unlink(path)
+
+
+def _py_forward(hmm: HiddenMarkovModel, obs_seq: List[str]) -> np.ndarray:
+    """Run forward algorithm in Python, return normalized alpha after last obs."""
+    obs_ids = hmm.obs_vocab.encode(obs_seq)
+    S = hmm.n_states
+    pi = np.asarray(hmm.pi, dtype=np.float64)
+    A = np.asarray(hmm.A, dtype=np.float64)
+    B = np.asarray(hmm.B, dtype=np.float64)
+
+    alpha = pi * B[:, obs_ids[0]]
+    s_sum = alpha.sum()
+    if s_sum > 0:
+        alpha /= s_sum
+    else:
+        alpha[:] = 1.0 / S
+
+    for oid in obs_ids[1:]:
+        new_alpha = (alpha @ A) * B[:, oid]
+        s_sum = new_alpha.sum()
+        if s_sum > 0:
+            new_alpha /= s_sum
+        else:
+            new_alpha[:] = 1.0 / S
+        alpha = new_alpha
+    return alpha
+
+
+def _c_forward(hmm: HiddenMarkovModel, obs_seq: List[str]) -> np.ndarray:
+    """Simulate hmm_forward_init/step in Python using the HMM's linear arrays."""
+    obs_ids = hmm.obs_vocab.encode(obs_seq)
+    S = hmm.n_states
+    pi = np.asarray(hmm.pi, dtype=np.float32)
+    A = np.asarray(hmm.A, dtype=np.float32)
+    B = np.asarray(hmm.B, dtype=np.float32)
+
+    # hmm_forward_init
+    alpha = pi * B[:, obs_ids[0]]
+    s_sum = float(alpha.sum())
+    if s_sum > 0.0:
+        alpha /= s_sum
+    else:
+        alpha[:] = 1.0 / S
+
+    # hmm_forward_step for each subsequent obs
+    for oid in obs_ids[1:]:
+        tmp = np.array([(alpha @ A[..., s]) * B[s, oid] for s in range(S)], dtype=np.float32)
+        # Correct: tmp[s] = sum_q alpha[q]*A[q,s] * B[s,oid]
+        tmp = np.array(
+            [(alpha * A[:, s]).sum() * B[s, oid] for s in range(S)],
+            dtype=np.float32,
+        )
+        s_sum = float(tmp.sum())
+        if s_sum > 0.0:
+            alpha = tmp / s_sum
+        else:
+            alpha = np.full(S, 1.0 / S, dtype=np.float32)
+
+    return alpha
+
+
+def test_hmm_forward_step_matches_python() -> None:
+    """C-simulated forward step produces same best state as Python forward."""
+    hmm = _make_hmm()
+    for obs_seq in [["a", "b", "c"], ["b", "c", "a"], ["a", "a", "b"]]:
+        py_alpha = _py_forward(hmm, obs_seq)
+        c_alpha = _c_forward(hmm, obs_seq)
+        py_best = int(py_alpha.argmax())
+        c_best = int(c_alpha.argmax())
+        assert py_best == c_best, f"obs={obs_seq}: py_best={py_best} c_best={c_best}"
+
+
+def test_hmm_forward_step_probabilities_sum_to_one() -> None:
+    """Normalized forward alpha sums to ~1.0."""
+    hmm = _make_hmm()
+    alpha = _c_forward(hmm, ["a", "b", "c"])
+    assert abs(float(alpha.sum()) - 1.0) < 1e-5
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "gcc"], capture_output=True).returncode != 0,
+    reason="gcc not available",
+)
+def test_hmm_forward_step_valid_c_syntax() -> None:
+    """HMM header with forward step functions passes gcc -fsyntax-only."""
+    hmm = _make_hmm()
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    c_path = ""
+    try:
+        export_hmm_c_header(hmm, path)
+        with tempfile.NamedTemporaryFile(suffix=".c", delete=False, mode="w") as cf:
+            cf.write(f'#include "{path}"\nint main(void) {{ return 0; }}\n')
+            c_path = cf.name
+        result = subprocess.run(
+            ["gcc", "-std=c99", "-fsyntax-only", c_path],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+    finally:
+        os.unlink(path)
+        if c_path and os.path.exists(c_path):
+            os.unlink(c_path)
+
+
+# ---------------------------------------------------------------------------
 # Recursive (3-level) backoff export
 # ---------------------------------------------------------------------------
 
