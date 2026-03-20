@@ -70,6 +70,53 @@ class TestHMMArchive:
             assert len(states) == 3
 
 
+class TestMarkovArchiveBackoff:
+    def test_backoff_chain_round_trip(self) -> None:
+        """Archives saved from a backoff MarkovChain include chain.json and restore _lower."""
+        import zipfile
+
+        vocab = Vocabulary()
+        seqs = [["a", "b", "c", "a", "b"]] * 20
+        vocab.build_from_sequences(seqs)
+        mc = MarkovChain(order=2, vocab=vocab, smoothing=1e-5, backoff=True)
+        mc.fit(seqs)
+        assert mc._lower is not None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = str(Path(tmpdir) / "backoff.markov")
+            save_markov_archive(mc, archive_path)
+
+            # chain.json must be present in the ZIP
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                assert "chain.json" in zf.namelist()
+
+            loaded = load_markov_archive(archive_path)
+            assert "chain" in loaded
+            restored: MarkovChain = loaded["chain"]
+            assert restored.order == mc.order
+            assert restored.backoff is True
+            assert restored._lower is not None
+            assert restored._lower.order == 1
+
+    def test_no_backoff_archive_has_chain_json(self) -> None:
+        """Non-backoff archives also contain chain.json for predict_probs round-trip."""
+        import zipfile
+
+        mc = _trained_markov()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = str(Path(tmpdir) / "simple.markov")
+            save_markov_archive(mc, archive_path)
+
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                assert "chain.json" in zf.namelist()
+
+            loaded = load_markov_archive(archive_path)
+            assert "chain" in loaded
+            chain = loaded["chain"]
+            probs = chain.predict_probs(["a"])
+            assert probs.sum() > 0.99
+
+
 class TestArchiveErrors:
     def test_unsupported_model_type(self) -> None:
         try:

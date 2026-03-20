@@ -4,6 +4,7 @@ A ``.markov`` archive is a ZIP file containing:
 - ``model.onnx`` — the exported ONNX model
 - ``vocab.json`` — the serialized :class:`Vocabulary`
 - ``config.json`` — metadata (model_type, order, etc.)
+- ``chain.json`` — (MarkovChain only) full counts + backoff chain for round-trip reconstruction
 """
 
 import json
@@ -49,6 +50,9 @@ def save_markov_archive(
                 "vocab_size": model.vocab.size,
                 "backoff": model.backoff,
             }
+            # Save full chain (with counts + backoff levels) for round-trip
+            chain_path = str(Path(tmpdir) / "chain.json")
+            model.save(chain_path)
         elif isinstance(model, HiddenMarkovModel):
             export_hmm_onnx(model, onnx_path)
             model.obs_vocab.save(vocab_path)
@@ -68,6 +72,8 @@ def save_markov_archive(
             zf.write(onnx_path, "model.onnx")
             zf.write(vocab_path, "vocab.json")
             zf.write(config_path, "config.json")
+            if isinstance(model, MarkovChain):
+                zf.write(chain_path, "chain.json")
 
     print(f"Saved archive: {archive_path} ({Path(archive_path).stat().st_size / 1024:.1f} KB)")
     return archive_path
@@ -85,6 +91,7 @@ def load_markov_archive(archive_path: str) -> dict:
         - ``"vocab"``: :class:`Vocabulary`
         - ``"config"``: dict of metadata (model_type, order, etc.)
         - ``"onnx_path"``: path to the extracted ONNX file (in temp dir)
+        - ``"chain"``: :class:`MarkovChain` (only present for markov_chain archives that contain ``chain.json``)
     """
     # Lazy imports to avoid circular dependency
     from markovonnx.onnx_runtime import HMMONNXRuntime, MarkovONNXRuntime
@@ -110,6 +117,9 @@ def load_markov_archive(archive_path: str) -> dict:
 
     if model_type == "markov_chain":
         rt = MarkovONNXRuntime(onnx_path, vocab, config["order"])
+        # Load full chain (counts + backoff) if available
+        chain_path = str(Path(tmpdir) / "chain.json")
+        chain = MarkovChain.load(chain_path) if Path(chain_path).exists() else None
     elif model_type == "hmm":
         # Create a minimal HMM for the runtime wrapper (needs pi, obs_vocab)
         import numpy as np
@@ -124,9 +134,12 @@ def load_markov_archive(archive_path: str) -> dict:
     else:
         raise ValueError(f"Unknown model_type in archive: {model_type}")
 
-    return {
+    result: dict = {
         "runtime": rt,
         "vocab": vocab,
         "config": config,
         "onnx_path": onnx_path,
     }
+    if model_type == "markov_chain" and chain is not None:
+        result["chain"] = chain
+    return result
