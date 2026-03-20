@@ -1,5 +1,8 @@
 # Suggestions
 
 1. **GPU-accelerated sparse lookup** — Replace the ONNX flat-index Gather with a CUDA hash-table custom op for vocabularies where `V^order > 5 000 000` (currently falls back to linear scan).
-2. **C export: recursive backoff** — Currently only one level of backoff is exported to C headers. Add recursive embedding for order > 2 chains.
-3. **`train-hmm` CLI command** — Add a supervised HMM training subcommand that reads a tagged corpus (TSV) and saves `HiddenMarkovModel.save()` JSON, with `--export-c` option.
+2. ~~**C export: recursive backoff**~~ — Implemented: all levels exported.
+3. ~~**`train-hmm` CLI command**~~ — Implemented: `markovonnx train-hmm` with CoNLL corpus support.
+4. **HMM unsupervised training from CLI** — Add `train-hmm --unsupervised` (Baum-Welch) for unannotated observation sequences.
+5. **size-report in CI** — Fail CI if total model size exceeds a configurable byte limit (add `--max-bytes` flag to `size-report`).
+6. **PlatformIO integration test** — Run `pio run` in CI on the generated `platformio.ini` to verify the sketch compiles end-to-end.

@@ -36,6 +36,21 @@ Yes — two C header exporters are provided.  `export_markov_c_header(mc, "model
 ## Can I run Viterbi decoding on ESP32?
 Yes — `export_hmm_c_header(hmm, "model.h")` embeds `hmm_viterbi()` as an inline C function. It takes caller-allocated `delta` (float), `psi` (int), and `path` (int) buffers and runs in O(T·S²). Log probabilities are pre-computed at export time so no `logf()` is called at inference. State labels are recovered via `HMM_STATE_VOCAB[path[t]]`.
 
+## Can I run online forward filtering on ESP32 without T-length buffers?
+Yes — the HMM C header now also includes linear-domain `HMM_PI`, `HMM_A`, `HMM_B` arrays and three inline functions: `hmm_forward_init(obs_id, alpha)` (initialise), `hmm_forward_step(obs_id, alpha)` (update in-place with a stack buffer), and `hmm_best_state(alpha)` (argmax). These use constant memory and avoid `expf()`.
+
+## How are all backoff levels exported to C?
+`export_markov_c_header` now traverses the full `_lower` chain and emits `MARKOV_KEYS_{k}`, `MARKOV_PROBS_{k}`, and `markov_lookup_{k}()` for every order *k*. `markov_sample_backoff(key, r)` tries levels from highest to lowest. Legacy `MARKOV_KEYS_LOWER` and `markov_lookup_lower()` aliases are kept for backward compatibility.
+
+## How do I check if my model fits in ESP32 flash?
+Use `markovonnx size-report model.json [--format markov|hmm] [--no-quantize] [--progmem]`. The `markovonnx.size_report` module provides `markov_c_sizes()`, `hmm_c_sizes()`, `format_markov_report()`, and `format_hmm_report()` for programmatic use.
+
+## How do I train an HMM from a tagged corpus via CLI?
+Use `markovonnx train-hmm corpus.tsv -o model.hmm.json [--n-states 8] [--smoothing 1e-5] [--export-c model.h] [--progmem] [--max-lines 0]`. Corpus format: one `obs TAB tag` per line, blank lines between sequences (CoNLL-style).
+
+## How do I generate a PlatformIO project for ESP32?
+Pass `--platformio` to `markovonnx export` or `markovonnx train --export-c`. This writes `platformio.ini` and `src/main.cpp` next to the `.h` file with a ready-to-compile Arduino sketch.
+
 ## Does `--backoff` work with streaming training?
 Yes — `fit_streaming` now recursively trains lower-order models (one extra pass per order level). Before v0.4.1, `--backoff` was silently ignored when streaming; only `fit()` built the lower chain.
 

@@ -178,26 +178,73 @@ number of states.
 
 ### HMM memory budget
 
-| Config | HMM_LOG_A | HMM_LOG_B | Total flash |
-|--------|-----------|-----------|-------------|
-| 8 states, 50 obs | 1.3 KB | 1.6 KB | **~3 KB** |
-| 16 states, 80 obs | 4 KB | 5 KB | **~9 KB** |
-| 32 states, 200 obs | 16 KB | 25 KB | **~41 KB** |
+Each model stores 6 float32 matrices (log + linear domain).
+
+| Config | HMM_LOG_A | HMM_LOG_B | Total (×2 for linear) |
+|--------|-----------|-----------|----------------------|
+| 8 states, 50 obs | 1.3 KB | 1.6 KB | **~6 KB** |
+| 16 states, 80 obs | 4 KB | 5 KB | **~18 KB** |
+| 32 states, 200 obs | 16 KB | 25 KB | **~82 KB** |
+
+Use `markovonnx size-report model.hmm.json --format hmm` for exact bytes.
 
 ## Backoff chain in C headers
 
-If the `MarkovChain` was trained with `backoff=True`, one level of backoff is automatically included in the generated header:
+If the `MarkovChain` was trained with `backoff=True`, **all backoff levels** are exported:
 
 ```c
-// Tries full-order lookup, falls back to lower-order, then returns token 0.
+// Per-level lookup (generated for every backoff order k):
+static inline const uint8_t* markov_lookup_2(uint64_t key);   // order=2
+static inline const uint8_t* markov_lookup_1(uint64_t key);   // order=1
+
+// Cascading sampler — tries levels from highest to lowest order:
 static inline int markov_sample_backoff(uint64_t key, float r);
+
+// Legacy aliases for single-level backoff code:
+#define MARKOV_KEYS_LOWER    MARKOV_KEYS_1
+static inline const uint8_t* markov_lookup_lower(uint64_t key);
 ```
 
-The lower-order key is extracted by masking the high bits of `key`. Only one backoff level is exported; deeper chains are silently ignored.
+`_render_header()` — `markovonnx/c_export.py:_render_header`
+
+## HMM forward step (constant memory)
+
+The HMM header includes linear-domain arrays and three forward-filter helpers — `c_export.py:_render_hmm_header`:
+
+```c
+static const float HMM_PI[HMM_N_STATES];
+static const float HMM_A[HMM_N_STATES][HMM_N_STATES];
+static const float HMM_B[HMM_N_STATES][HMM_OBS_SIZE];
+
+// alpha: caller-allocated float[HMM_N_STATES]
+static inline void hmm_forward_init(int obs_id, float* alpha);
+static inline void hmm_forward_step(int obs_id, float* alpha);
+static inline int  hmm_best_state(const float* alpha);
+```
+
+No T-length buffers required; `hmm_forward_step` uses only a stack-local `tmp[HMM_N_STATES]`.
+
+## Size report
+
+```bash
+markovonnx size-report model.json --format markov
+markovonnx size-report model.hmm.json --format hmm --progmem
+```
+
+`format_markov_report()` / `format_hmm_report()` — `markovonnx/size_report.py`
+
+## PlatformIO project generation
+
+```bash
+markovonnx export model.json --format markov-c -o model.h --platformio
+```
+
+Creates `platformio.ini` and `src/main.cpp` next to `model.h`. The sketch compiles with PlatformIO `pio run`.
+
+`_write_platformio_files()` — `markovonnx/cli.py:_write_platformio_files`
 
 ## Limitations
 
 - No dynamic allocation; unseen contexts fall back to token 0 (see `markov_sample` null check).
-- Only one level of C backoff exported; order > 2 chains with deep backoff are truncated.
 - Vocab strings are UTF-8 char pointers; ensure flash encoding matches sketch charset.
-- Use PlatformIO for ESP32 build integration; ESP-IDF CMake integration is out of scope.
+- HMM forward step uses a stack `tmp[HMM_N_STATES]`; ensure stack size ≥ `4 * HMM_N_STATES` bytes.

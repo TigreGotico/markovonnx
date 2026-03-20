@@ -3,7 +3,7 @@
 ## Known Issues
 
 1. **Sparse export linear scan (large vocabs)** — `export_markov_sparse_onnx` uses flat-index O(1) Gather for `V^order <= 5_000_000`. Above that threshold it falls back to O(N) linear scan (Equal/ArgMax). Custom CUDA hash op would fix this for large models. — `markovonnx/onnx_export.py:_FLAT_INDEX_MAX_ENTRIES`
-2. **C export: one backoff level only** — `export_markov_c_header` exports at most one level of backoff. Deeper chains (order > 2 with recursive backoff) are silently truncated. — `markovonnx/c_export.py:_render_header`
+2. ~~**C export: one backoff level only**~~ — Fixed: all backoff levels exported with per-level arrays and lookup functions. — `markovonnx/c_export.py:_render_header`
 
 ## Resolved Issues
 

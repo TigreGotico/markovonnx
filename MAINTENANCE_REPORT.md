@@ -1,5 +1,19 @@
 # Maintenance Report
 
+## 2026-03-20 — C export enhancements + new CLI subcommands (v0.5.0)
+
+- **AI Model**: Claude Sonnet 4.6
+- **Actions Taken**:
+  - **fix**: `_collect_rows` normalization guard — if all uint8 entries round to 0, set `row[argmax] = 1` (`c_export.py:158`)
+  - **feat**: Recursive backoff export — all `_lower` chain levels emitted as `MARKOV_KEYS_{k}`, `MARKOV_PROBS_{k}`, `markov_lookup_{k}()`. `markov_sample_backoff()` cascades through all levels. Legacy aliases kept (`c_export.py:_render_header`)
+  - **feat**: HMM C header now emits linear-domain `HMM_PI`, `HMM_A`, `HMM_B` + `hmm_forward_init()`, `hmm_forward_step()`, `hmm_best_state()` for constant-memory forward filtering (`c_export.py:_render_hmm_header`)
+  - **feat**: New module `markovonnx/size_report.py` — `markov_c_sizes()`, `hmm_c_sizes()`, `format_markov_report()`, `format_hmm_report()` with ESP32 fit checks
+  - **feat**: `markovonnx size-report` CLI subcommand (`cli.py:cmd_size_report`)
+  - **feat**: `markovonnx train-hmm` CLI subcommand — CoNLL corpus, `--n-states`, `--smoothing`, `--export-c`, `--max-lines` (`cli.py:cmd_train_hmm`)
+  - **feat**: `--platformio` flag on `export` and `train` — generates `platformio.ini` + `src/main.cpp` (`cli.py:_write_platformio_files`)
+  - 239 tests passing (38 new tests across `test_c_export.py`, `test_size_report.py`, `test_cli.py`)
+- **Oversight**: All tests run and validated locally; human review before push
+
 ## 2026-03-20 — Backlog tasks (v0.4.1)
 
 - **AI Model**: Claude Sonnet 4.6
