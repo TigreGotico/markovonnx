@@ -838,3 +838,85 @@ def test_cli_export_hmm_c(tmp_path) -> None:
     assert os.path.exists(header_path)
     content = open(header_path).read()
     assert "#define HMM_N_STATES" in content
+
+
+# ---------------------------------------------------------------------------
+# Recursive (3-level) backoff export
+# ---------------------------------------------------------------------------
+
+
+def _make_chain_backoff3(order: int = 3) -> MarkovChain:
+    """Build a trained MarkovChain with 3-level backoff (order 3 -> 2 -> 1)."""
+    corpus = [list("abcabc"), list("bbbccc"), list("abcbc")]
+    vocab = Vocabulary(max_vocab=0)
+    vocab.build_from_sequences(corpus)
+    mc = MarkovChain(order=order, vocab=vocab, smoothing=1e-5, backoff=True)
+    mc.fit(corpus)
+    return mc
+
+
+def test_recursive_backoff_all_levels_exported() -> None:
+    """Order-3 chain with backoff exports arrays for order 2 and order 1."""
+    mc = _make_chain_backoff3(order=3)
+    assert mc._lower is not None
+    assert mc._lower._lower is not None  # three levels exist
+
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_markov_c_header(mc, path)
+        content = open(path).read()
+        # Order-2 arrays
+        assert "MARKOV_SPARSE_ROWS_2" in content
+        assert "MARKOV_KEYS_2[" in content
+        assert "MARKOV_PROBS_2[" in content
+        assert "markov_lookup_2(" in content
+        # Order-1 arrays
+        assert "MARKOV_SPARSE_ROWS_1" in content
+        assert "MARKOV_KEYS_1[" in content
+        assert "MARKOV_PROBS_1[" in content
+        assert "markov_lookup_1(" in content
+        # Combined sample_backoff
+        assert "markov_sample_backoff(" in content
+    finally:
+        os.unlink(path)
+
+
+def test_recursive_backoff_legacy_alias_present() -> None:
+    """Legacy MARKOV_KEYS_LOWER alias points to first backoff level."""
+    mc = _make_chain_backoff3(order=3)
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    try:
+        export_markov_c_header(mc, path)
+        content = open(path).read()
+        assert "MARKOV_KEYS_LOWER" in content
+        assert "markov_lookup_lower(" in content
+    finally:
+        os.unlink(path)
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "gcc"], capture_output=True).returncode != 0,
+    reason="gcc not available",
+)
+def test_recursive_backoff_valid_c_syntax() -> None:
+    """3-level backoff C header passes gcc -fsyntax-only."""
+    mc = _make_chain_backoff3(order=3)
+    with tempfile.NamedTemporaryFile(suffix=".h", delete=False) as f:
+        path = f.name
+    c_path = ""
+    try:
+        export_markov_c_header(mc, path)
+        with tempfile.NamedTemporaryFile(suffix=".c", delete=False, mode="w") as cf:
+            cf.write(f'#include "{path}"\nint main(void) {{ return 0; }}\n')
+            c_path = cf.name
+        result = subprocess.run(
+            ["gcc", "-std=c99", "-fsyntax-only", c_path],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, result.stderr
+    finally:
+        os.unlink(path)
+        if c_path and os.path.exists(c_path):
+            os.unlink(c_path)
