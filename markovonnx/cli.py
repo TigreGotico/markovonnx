@@ -91,6 +91,27 @@ def cmd_export(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_size_report(args: argparse.Namespace) -> None:
+    """Print a human-readable C-header size report for a saved model."""
+    from markovonnx.size_report import format_hmm_report, format_markov_report
+
+    fmt = args.format
+    no_quantize = getattr(args, "no_quantize", False)
+    progmem = getattr(args, "progmem", False)
+
+    if fmt == "markov":
+        from markovonnx.markov import MarkovChain
+        chain = MarkovChain.load(args.model)
+        print(format_markov_report(chain, quantize=not no_quantize, progmem=progmem))
+    elif fmt == "hmm":
+        from markovonnx.hmm import HiddenMarkovModel
+        hmm = HiddenMarkovModel.load(args.model)
+        print(format_hmm_report(hmm, progmem=progmem))
+    else:
+        print(f"Unknown format: {fmt}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_info(args: argparse.Namespace) -> None:
     """Show metadata from a .markov archive."""
     import json
@@ -152,6 +173,16 @@ def main() -> None:
     p_info = sub.add_parser("info", help="Show metadata from a .markov archive")
     p_info.add_argument("archive", help="Path to .markov archive")
 
+    # -- size-report ----------------------------------------------------------
+    p_size = sub.add_parser("size-report", help="Show C header memory size breakdown for a model")
+    p_size.add_argument("model", help="Path to MarkovChain JSON or HMM JSON")
+    p_size.add_argument(
+        "--format", choices=["markov", "hmm"], default="markov",
+        help="Model format (default: markov)",
+    )
+    p_size.add_argument("--no-quantize", action="store_true", help="Assume float32 probs (markov only)")
+    p_size.add_argument("--progmem", action="store_true", help="Show Flash-only fit check")
+
     args = parser.parse_args()
     if args.command == "train":
         cmd_train(args)
@@ -161,6 +192,8 @@ def main() -> None:
         cmd_export(args)
     elif args.command == "info":
         cmd_info(args)
+    elif args.command == "size-report":
+        cmd_size_report(args)
     else:
         parser.print_help()
         sys.exit(1)
