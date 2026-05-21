@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.1a2](https://github.com/TigreGotico/markovonnx/tree/0.0.1a2) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.1a1...0.0.1a2)
+
+**Merged pull requests:**
+
+- ci: pass release secrets explicitly [\#8](https://github.com/TigreGotico/markovonnx/pull/8) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.0.1a1](https://github.com/TigreGotico/markovonnx/tree/0.0.1a1) (2026-05-21)
 
 [Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.0...0.0.1a1)
