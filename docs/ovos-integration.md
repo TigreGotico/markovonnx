@@ -1,6 +1,6 @@
 # OVOS Integration Guide
 
-markovonnx provides 8 native OVOS plugins via `markovonnx.opm`. All OVOS imports are confined to this single file.
+markovonnx provides 7 native OVOS plugins via `markovonnx.opm`. All OVOS imports are confined to this single file. The intent pipeline plugin ships separately as [`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin).
 
 ```bash
 pip install markovonnx[ovos]
@@ -10,7 +10,6 @@ pip install markovonnx[ovos]
 
 | Plugin | OPM Entry Point | Config Section |
 |--------|-----------------|----------------|
-| [MarkovPipeline](#intent-matching) | `opm.pipeline` | `intents` |
 | [MarkovUtteranceTransformer](#stt-rescoring) | `opm.transformer.text` | `utterance_transformers` |
 | [MarkovLangDetector](#language-detection) | `opm.lang.detect` | `lang_detect` |
 | [MarkovPosTagger](#pos-tagging) | `opm.postag` | `postag` |
@@ -23,44 +22,12 @@ pip install markovonnx[ovos]
 
 ## Intent Matching
 
-**Entry point**: `opm.pipeline` → `ovos-markov-pipeline-plugin`
+The OVOS intent pipeline plugin is a separate package,
+[`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin)
+(`opm.pipeline` entry point). Install and configure it from that repository.
 
-Classifies user utterances by training one Markov chain per intent and selecting the model with lowest perplexity.
-
-### Configuration
-
-```json
-{
-  "intents": {
-    "ovos-markov-pipeline-plugin": {
-      "order": 2,
-      "kneser_ney": true,
-      "backoff": true,
-      "stem": false,
-      "char_fallback": false,
-      "online_learning": false,
-      "smoothing": 1e-5,
-      "conf_high": 0.75,
-      "conf_med": 0.55,
-      "conf_low": 0.30,
-      "instant_train": false,
-      "max_words": 50
-    }
-  }
-}
-```
-
-### How It Trains
-
-Automatically. Skills register intents via `padatious:register_intent` bus messages (same as Padatious). The plugin collects samples, builds a shared vocabulary, and trains one MarkovChain per intent. No manual training needed.
-
-### Recommendations
-
-- `order=1` for small training sets (5-20 examples per intent)
-- `order=2` with 20+ examples
-- Always use `kneser_ney=true` — 10-15% accuracy improvement over Laplace
-- Enable `char_fallback=true` when word scores are ambiguous between intents
-- Enable `stem=true` for inflected languages (requires `snowballstemmer`)
+It builds on the same perplexity-classifier pattern markovonnx provides — see
+[guide.md](guide.md) for using `MarkovChain` as a classifier directly.
 
 ---
 

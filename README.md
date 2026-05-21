@@ -90,11 +90,10 @@ See [examples/](examples/) for all 25 runnable scripts with toy datasets.
 
 ## OVOS Integration
 
-8 native [OpenVoiceOS](https://openvoiceos.org) plugins via `markovonnx.opm`:
+7 native [OpenVoiceOS](https://openvoiceos.org) plugins via `markovonnx.opm`:
 
 | Plugin | OPM Entry Point | What It Does |
 |--------|-----------------|--------------|
-| `MarkovPipeline` | `opm.pipeline` | Intent matching via perplexity ensemble |
 | `MarkovUtteranceTransformer` | `opm.transformer.text` | STT rescoring with domain LM |
 | `MarkovLangDetector` | `opm.lang.detect` | Language detection |
 | `MarkovPosTagger` | `opm.postag` | POS tagging (97.5% on Brown corpus) |
@@ -104,6 +103,9 @@ See [examples/](examples/) for all 25 runnable scripts with toy datasets.
 | `MarkovChatEngine` | `opm.agents.chat` | Persona chat (metal lyricist, Shakespeare, pirate) |
 
 All OVOS imports confined to `markovonnx/opm.py`. Core library has zero OVOS deps.
+
+The OVOS intent pipeline plugin is a separate package:
+[`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin).
 
 See [docs/ovos-integration.md](docs/ovos-integration.md) for configuration, training, and pretrained model setup.
 
