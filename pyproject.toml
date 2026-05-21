@@ -29,9 +29,6 @@ ovos = [
 [project.scripts]
 markovonnx = "markovonnx.cli:main"
 
-[project.entry-points."opm.pipeline"]
-ovos-markov-pipeline-plugin = "markovonnx.opm:MarkovPipeline"
-
 [project.entry-points."opm.lang.detect"]
 ovos-markov-lang-detect = "markovonnx.opm:MarkovLangDetector"
 
