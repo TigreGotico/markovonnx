@@ -7,14 +7,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install ruff
-        run: pip install ruff
-      - name: Run ruff
-        run: ruff check . || true
+    uses: OpenVoiceOS/gh-automations/.github/workflows/lint.yml@dev
+    with:
+      ruff: true
+      pre_commit: false   # set true if .pre-commit-config.yaml exists
