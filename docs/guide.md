@@ -25,7 +25,7 @@ Most Markov chain implementations exist as teaching tools or one-off scripts. ma
 | Use Case | Why | Example |
 |----------|-----|---------|
 | **Language identification** | Character n-gram perplexity is the classic approach; fast, accurate, tiny models | Example 10, `MarkovLangDetector` |
-| **Intent classification (small data)** | 5-50 examples per class is enough for word-level perplexity ensemble | Example 11, `MarkovPipeline` |
+| **Intent classification (small data)** | 5-50 examples per class is enough for word-level perplexity ensemble | Example 11; OVOS plugin: `ovos-markov-pipeline-plugin` |
 | **POS tagging** | HMM Viterbi is the textbook solution; 96% accuracy on Penn Treebank | Example 12, `MarkovPosTagger` |
 | **Sequence tagging (NER, BIO)** | Supervised HMM works well for entity extraction with labeled data | Example 3, `SlotExtractor` |
 | **Text generation (creative)** | Character-level Markov chains produce entertaining, style-mimicking text | Examples 1-2 |

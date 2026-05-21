@@ -20,7 +20,7 @@ viz = ["matplotlib"]
 quantize = ["onnxruntime-tools", "onnxconverter-common"]
 test = ["pytest", "pytest-cov", "hypothesis"]
 ovos = [
-    "ovos-plugin-manager>=0.0.1",
+    "ovos-plugin-manager>=2.4.0a1",
     "ovos-bus-client>=0.1.0",
     "ovos-utils>=0.1.0",
     "ovos-config>=0.1.0",
@@ -28,9 +28,6 @@ ovos = [
 
 [project.scripts]
 markovonnx = "markovonnx.cli:main"
-
-[project.entry-points."opm.pipeline"]
-ovos-markov-pipeline-plugin = "markovonnx.opm:MarkovPipeline"
 
 [project.entry-points."opm.lang.detect"]
 ovos-markov-lang-detect = "markovonnx.opm:MarkovLangDetector"

@@ -4,54 +4,14 @@ from markovonnx.opm import (
     MarkovChatEngine,
     MarkovG2P,
     MarkovUtteranceTransformer,
-    MarkovIntentEngine,
     MarkovKeywordExtractor,
     MarkovLangDetector,
     MarkovPosTagger,
     MarkovSegmenter,
-    _normalize,
-    _ppx_to_confidence,
 )
 
 # re-use OVOS types
 from ovos_plugin_manager.templates.agents import AgentMessage, MessageRole
-
-
-# ── Helpers ─────────────────────────────────────────────────────────────
-
-class TestHelpers:
-    def test_normalize(self) -> None:
-        assert _normalize("  Hello  World! ") == "hello world"
-
-    def test_ppx_to_confidence(self) -> None:
-        assert _ppx_to_confidence(1.0) == 1.0
-        assert 0 < _ppx_to_confidence(100) < 0.3
-
-
-# ── Intent Engine ───────────────────────────────────────────────────────
-
-class TestMarkovIntentEngine:
-    def _engine(self) -> MarkovIntentEngine:
-        e = MarkovIntentEngine(order=1, kneser_ney=False, backoff=False)
-        e.add_intent("weather:get", [
-            "what is the weather", "how is the weather",
-            "tell me the weather", "what is the forecast",
-        ])
-        e.add_intent("timer:set", [
-            "set a timer", "start a timer",
-            "set a countdown", "timer for five minutes",
-        ])
-        e.train()
-        return e
-
-    def test_classify(self) -> None:
-        e = self._engine()
-        scores = e.calc_intents("what is the weather")
-        assert scores[0][0] == "weather:get"
-
-    def test_empty(self) -> None:
-        e = MarkovIntentEngine()
-        assert e.calc_intents("hello") == []
 
 
 # ── Language Detection ──────────────────────────────────────────────────
