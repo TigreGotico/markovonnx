@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1a1](https://github.com/TigreGotico/markovonnx/tree/1.0.1a1) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.1a3...1.0.1a1)
+
+**Merged pull requests:**
+
+- fix: repair the corrupted version file [\#14](https://github.com/TigreGotico/markovonnx/pull/14) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.0.1a3](https://github.com/TigreGotico/markovonnx/tree/0.0.1a3) (2026-05-21)
 
 [Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.1a2...0.0.1a3)
