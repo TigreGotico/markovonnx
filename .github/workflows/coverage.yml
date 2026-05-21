@@ -8,9 +8,9 @@ on:
 jobs:
   coverage:
     uses: OpenVoiceOS/gh-automations/.github/workflows/coverage.yml@dev
-    secrets: inherit
     with:
       python_version: '3.11'
       coverage_source: 'markovonnx'
+      test_path: 'test/'
       install_extras: '-e .[test,ovos]'
-      test_path: 'test'
+      min_coverage: 0

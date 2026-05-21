@@ -1,4 +1,4 @@
-name: OPM Check
+name: OPM Plugin Check
 
 on:
   pull_request:
@@ -8,6 +8,11 @@ on:
 jobs:
   opm_check:
     uses: OpenVoiceOS/gh-automations/.github/workflows/opm-check.yml@dev
-    secrets: inherit
     with:
+      python_version: '3.11'
       plugin_type: 'auto'
+      entry_point: 'ovos-markov-lang-detect'
+      opm_require_found: true
+      opm_validate_interface: true
+      opm_test_import: true
+      opm_perf_threshold_ms: 500
