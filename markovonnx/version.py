@@ -5,7 +5,7 @@ __version__ = "0.3.0"
 VERSION_MAJOR = 0
 VERSION_MINOR = 0
 VERSION_BUILD = 1
-VERSION_ALPHA = 1
+VERSION_ALPHA = 2
 # END_VERSION_BLOCK"""Version information for markovonnx."""
 
 __version__ = "0.3.0"
