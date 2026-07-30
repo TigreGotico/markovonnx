@@ -17,7 +17,7 @@ Inference Pipeline:
 
 ## Sparse vs Dense Storage
 
-During training, `MarkovChain` stores counts sparsely as `Dict[int, np.ndarray]` — only contexts that appear in the corpus get an entry. This keeps memory proportional to data, not `V^order`.
+During training, `MarkovChain` stores counts sparsely as `Dict[int, np.ndarray]`. Only contexts that appear in the corpus get an entry. This keeps memory proportional to data, not `V^order`.
 
 On ONNX export, `dense_matrix()` (`markov.py:92`) materialises the full `V^order × V` matrix with Laplace smoothing. This is necessary because ONNX requires fixed-size tensors.
 
@@ -91,10 +91,10 @@ input_ids [order]
 ```
 
 **Weights stored:**
-- `sparse_table`: `[n_sparse + 1, V]` — observed rows + uniform fallback
-- `keys`: `[n_sparse]` — context indices for lookup
-- `powers`: `[order]` — base-V encoding
-- `fallback_idx`: `[1]` — index of uniform row
+- `sparse_table`: `[n_sparse + 1, V]`, observed rows plus a uniform fallback row
+- `keys`: `[n_sparse]`, context indices for lookup
+- `powers`: `[order]`, base-V encoding
+- `fallback_idx`: `[1]`, index of the uniform row
 
 ## Module Dependency Graph
 
@@ -114,3 +114,6 @@ cli  ──→ archive, markov, tokenizers, vocabulary
 ## ONNX Opset and IR Version
 
 All exported models use **opset 13** and **IR version 8**, compatible with ONNX Runtime 1.10+.
+
+---
+[← API Reference](api-reference.md) · [Home](index.md)

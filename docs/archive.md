@@ -1,6 +1,6 @@
 # Portable Archives
 
-`save_markov_archive` / `load_markov_archive` — `markovonnx/archive.py`
+`save_markov_archive` / `load_markov_archive` (`markovonnx/archive.py`)
 
 ## `.markov` Format
 
@@ -81,3 +81,6 @@ Extracted temp files are automatically cleaned up on process exit via `atexit`. 
 | Single file | Yes | Yes |
 | HMM support | Yes | No |
 | Requires onnx import | No | Yes (for metadata parsing) |
+
+---
+[← Text Generation](text-generation.md) · [Home](index.md) · [CLI →](cli.md)

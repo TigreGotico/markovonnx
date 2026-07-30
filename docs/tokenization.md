@@ -12,15 +12,15 @@ All tokenization utilities live in `markovonnx/tokenizers.py`.
 
 ## Functions
 
-### `char_tokenize(line: str) -> List[str]` — `tokenizers.py:7`
+### `char_tokenize(line: str) -> List[str]` (`tokenizers.py:7`)
 
 Strips whitespace, returns individual characters.
 
-### `word_tokenize(line: str) -> List[str]` — `tokenizers.py:12`
+### `word_tokenize(line: str) -> List[str]` (`tokenizers.py:12`)
 
 Strips whitespace, lowercases, splits on whitespace.
 
-### `corpus_iter(path, tokenize_fn, max_lines=0) -> Iterator[List]` — `tokenizers.py:17`
+### `corpus_iter(path, tokenize_fn, max_lines=0) -> Iterator[List]` (`tokenizers.py:17`)
 
 Streams a text file line-by-line, applying `tokenize_fn` to each line. Yields only non-empty token lists. Use `max_lines` to cap the number of sequences.
 
@@ -31,7 +31,7 @@ for tokens in corpus_iter("corpus.txt", word_tokenize, max_lines=1000):
     print(tokens)
 ```
 
-### `get_tokenize_fn(mode, bpe_tokenizer=None) -> Callable` — `tokenizers.py:105`
+### `get_tokenize_fn(mode, bpe_tokenizer=None) -> Callable` (`tokenizers.py:105`)
 
 Dispatcher that returns the appropriate tokenization function for a mode string.
 
@@ -46,9 +46,9 @@ Raises `ValueError` if `mode` is `"bpe"` and `bpe_tokenizer` is `None`.
 
 ## SubwordTokenizer
 
-`SubwordTokenizer` — `tokenizers.py:40`
+`SubwordTokenizer` (`tokenizers.py:40`)
 
-A dependency-free BPE tokenizer that loads a HuggingFace `tokenizers` JSON file. No runtime dependency on the `tokenizers` package — it re-implements BPE merge application in pure Python.
+A dependency-free BPE tokenizer that loads a HuggingFace `tokenizers` JSON file. It has no runtime dependency on the `tokenizers` package. It re-implements BPE merge application in pure Python instead.
 
 ### Training a tokenizer (requires `tokenizers` package)
 
@@ -99,3 +99,6 @@ text = bpe.decode_bpe(ids)
 | `merges` | `list` | Ordered BPE merge pairs |
 | `unk_token` | `str` | Unknown token string (default `"[UNK]"`) |
 | `unk_id` | `int` | Unknown token ID |
+
+---
+[← Configuration](configuration.md) · [Home](index.md) · [Vocabulary →](vocabulary.md)

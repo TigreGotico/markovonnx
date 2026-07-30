@@ -2,39 +2,35 @@
 
 Markov chains and Hidden Markov Models with ONNX export and Kneser-Ney smoothing.
 
-## Let's Be Honest
+## What It Is
 
-This library implements algorithms from the 1990s. In 2026, a fine-tuned transformer will beat it on every benchmark that matters. You should probably use sentence-transformers or a small LLM for anything production-critical.
+markovonnx trains classical n-gram Markov chains and Hidden Markov Models and exports them to ONNX for fast inference. It does not use neural networks or a GPU. For most tasks, a fine-tuned transformer gets better accuracy than an n-gram model. Use markovonnx where a transformer is not practical, or as a baseline to measure a larger model against.
 
-**So why does this exist?**
+### When to Use markovonnx
 
-1. **Baseline benchmarking.** You can't claim your fancy neural model is good unless you know how much better it is than the dumbest thing that could possibly work. markovonnx _is_ that dumb baseline. If your 400MB model only beats an n-gram chain by 3%, you have a problem.
+1. **Baseline benchmarking.** Compare a larger model against the simplest thing that could work. If a 400 MB model only beats an n-gram chain by 3%, that result tells you something about the larger model.
+2. **Constrained hardware.** Raspberry Pi Zero, ESP32, a browser through WASM, or an older Android phone. On these targets, installing a full deep learning stack is not an option. markovonnx models are kilobyte-sized and train in milliseconds. They run anywhere ONNX Runtime runs.
+3. **Small datasets.** Neural models need hundreds or thousands of examples. A Markov chain gives a usable result from 5-50 samples, for example a voice assistant skill with 8 example utterances.
+4. **Teaching.** The library gives a complete, tested, documented implementation of Markov chains and HMMs, with 25 runnable examples.
+5. **Text generation for fun.** Training a character-level Markov chain on a small corpus and sampling from it produces stylistically consistent but not meaningful text.
 
-2. **Running on a potato.** Raspberry Pi Zero. ESP32. A browser via WASM. A 15-year-old Android phone. Places where "just pip install torch" isn't an option. markovonnx models are kilobytes and train in milliseconds. They run anywhere ONNX Runtime runs, which is basically everywhere.
+### What It Is Good At
 
-3. **When you have 10 training examples.** Neural models need hundreds or thousands of examples. Markov chains give you _something_ useful from 5-50 samples. It won't be great, but it'll be better than random — and for a voice assistant skill with 8 example utterances, that's the reality.
+- **Language detection**: character n-gram perplexity is a standard, competitive approach for this task.
+- **POS tagging**: HMM Viterbi decoding reaches 97.5% accuracy on the Brown corpus.
+- **Anomaly detection**: perplexity is a reasonable score for "does this line look normal".
+- **Providing a baseline**: every benchmark needs a lower bound to compare against.
 
-4. **Teaching.** If you're learning NLP, Markov chains and HMMs are where you start. This library gives you a complete, tested, documented implementation with 25 runnable examples.
-
-5. **Fun.** Training a character-level Markov chain on black metal lyrics and letting it generate text is entertaining. The persona chat agent exists because it's funny, not because it's useful.
-
-### What It's Actually Good At
-
-- **Language detection** — char n-gram perplexity is genuinely competitive for this task
-- **POS tagging** — HMM Viterbi gets 97.5% on Brown corpus, which was state-of-the-art in 1995
-- **Anomaly detection** — "does this log line look normal?" is a legitimate use case for perplexity
-- **Providing a floor** — every benchmark needs a lower bound
-
-### What You Should Use Instead
+### When to Use Something Else
 
 | Task | Use markovonnx if... | Use this instead for production |
 |------|---------------------|--------------------------------|
-| Intent classification | You have <20 examples, no GPU | fine-tuned BERT, Model2Vec     |
-| Language detection | Truly offline, no model downloads | fastText langdetect  |
-| POS tagging | Teaching, embedded systems | spaCy, Stanza, flair           |
-| Text generation | Fun/creative, persona chatbot | Any LLM                        |
-| G2P | Tiny model requirement | espeak, DeepPhonemizer             |
-| STT rescoring | Domain-specific vocab boost | Neural LM rescoring, KenLM     |
+| Intent classification | You have <20 examples, no GPU | fine-tuned BERT, Model2Vec |
+| Language detection | Truly offline, no model downloads | fastText, langdetect |
+| POS tagging | Teaching, embedded systems | spaCy, Stanza, flair |
+| Text generation | Creative or persona chatbot | Any LLM |
+| G2P | Tiny model requirement | espeak, DeepPhonemizer |
+| STT rescoring | Domain-specific vocabulary boost | Neural LM rescoring, KenLM |
 
 ## Install
 
@@ -69,7 +65,7 @@ probs = rt.predict_probs(["the", "cat"])
 | Feature | Description |
 |---------|-------------|
 | **Markov Chains** | N-gram models with sparse storage, Modified Kneser-Ney, interpolated backoff |
-| **Hidden Markov Models** | Supervised MLE + log-space Baum-Welch, vectorized Viterbi |
+| **Hidden Markov Models** | Supervised MLE and log-space Baum-Welch, vectorized Viterbi |
 | **ONNX Export** | Dense and sparse graphs, INT8 quantization, ~75% compression |
 | **Pretrained Models** | save/load for MarkovChain and HMM, NLTK training scripts |
 | **CLI** | `markovonnx train/generate/info` |
@@ -90,10 +86,10 @@ See [examples/](examples/) for all 25 runnable scripts with toy datasets.
 
 ## OVOS Integration
 
-7 native [OpenVoiceOS](https://openvoiceos.org) plugins via `markovonnx.opm`:
+markovonnx provides 7 native [OpenVoiceOS](https://openvoiceos.org) plugins through `markovonnx.opm`.
 
 | Plugin | OPM Entry Point | What It Does |
-|--------|-----------------|--------------|
+|--------|-----------------|---------------|
 | `MarkovUtteranceTransformer` | `opm.transformer.text` | STT rescoring with domain LM |
 | `MarkovLangDetector` | `opm.lang.detect` | Language detection |
 | `MarkovPosTagger` | `opm.postag` | POS tagging (97.5% on Brown corpus) |
@@ -102,10 +98,9 @@ See [examples/](examples/) for all 25 runnable scripts with toy datasets.
 | `MarkovG2P` | `opm.g2p` | Grapheme-to-phoneme |
 | `MarkovChatEngine` | `opm.agents.chat` | Persona chat (metal lyricist, Shakespeare, pirate) |
 
-All OVOS imports confined to `markovonnx/opm.py`. Core library has zero OVOS deps.
+All OVOS imports stay confined to `markovonnx/opm.py`. The core library has no OVOS dependencies.
 
-The OVOS intent pipeline plugin is a separate package:
-[`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin).
+The OVOS intent pipeline plugin ships as a separate package, [`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin).
 
 See [docs/ovos-integration.md](docs/ovos-integration.md) for configuration, training, and pretrained model setup.
 
@@ -126,40 +121,45 @@ See [scripts/README.md](scripts/README.md) for details.
 
 ## Documentation
 
-16 pages in [docs/](docs/) covering [getting started](docs/getting-started.md), [usage guide](docs/guide.md) (when to use, when to avoid), [OVOS integration](docs/ovos-integration.md), [API reference](docs/api-reference.md), [architecture](docs/architecture.md), [CLI](docs/cli.md), and more.
+16 pages in [docs/](docs/) cover the library end to end. Start with [getting started](docs/getting-started.md) and the [usage guide](docs/guide.md) (when to use markovonnx, when to avoid it). See also [OVOS integration](docs/ovos-integration.md), the [API reference](docs/api-reference.md), [architecture](docs/architecture.md), and the [CLI](docs/cli.md).
+
+## Related Projects
+
+- [`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin): OVOS intent pipeline built on markovonnx.
+- [OpenVoiceOS](https://openvoiceos.org): the voice assistant platform the OVOS plugins integrate with.
 
 ## AI Transparency
 
-This project was built entirely by an AI agent with human oversight.
+An AI agent built this project under human oversight.
 
 ### AI Model
 
-**Claude Opus 4.6** (Anthropic) via Claude Code CLI. All code, tests, documentation, and examples were generated in a single extended conversation.
+**Claude Opus 4.6** (Anthropic), through the Claude Code CLI. The AI generated all code, tests, documentation, and examples in a single extended conversation.
 
 ### Human Oversight
 
-- **Architecture decisions** were human-approved before implementation (plan mode review)
-- **Feature lists** were proposed by the AI, reviewed and approved by the human before building
-- **Every commit** was staged locally — the human controls all `git push` operations
-- **Bug fixes and improvements** were guided by human feedback
+- The human approved architecture decisions before implementation (plan mode review).
+- The AI proposed feature lists. The human reviewed and approved them before building.
+- The human staged every commit locally and controls all `git push` operations.
+- Human feedback guided bug fixes and improvements.
 
 ### What the AI Did
 
-- Extracted a Jupyter notebook into a standalone library (9 source modules)
-- Wrote 150 unit tests achieving 99% code coverage
-- Created 25 runnable examples across 10+ domains
-- Built 8 OVOS plugins with full OPM integration and E2E tests
-- Wrote 16 documentation pages including API reference and usage guide
-- Performed comprehensive code audit (31 issues found and fixed)
-- Implemented Modified Kneser-Ney smoothing, log-space Baum-Welch, vectorized Viterbi, sparse ONNX export, domain LM STT rescoring
+- Extracted a Jupyter notebook into a standalone library (9 source modules).
+- Wrote 150 unit tests reaching 99% code coverage.
+- Created 25 runnable examples across 10+ domains.
+- Built 8 OVOS plugins with full OPM integration and end-to-end tests.
+- Wrote 16 documentation pages, including an API reference and usage guide.
+- Audited the code and fixed 31 issues found in that audit.
+- Implemented Modified Kneser-Ney smoothing, log-space Baum-Welch, vectorized Viterbi, sparse ONNX export, and domain LM STT rescoring.
 
 ### What the Human Did
 
-- Provided the original notebook with the core algorithms
-- Directed the overall vision and feature priorities
-- Reviewed and approved plans before implementation
-- Made final decisions on architecture
-- Controls publishing, pushing, and deployment
+- Provided the original notebook with the core algorithms.
+- Directed the overall vision and feature priorities.
+- Reviewed and approved plans before implementation.
+- Made final decisions on architecture.
+- Controls publishing, pushing, and deployment.
 
 Every AI-generated commit includes an `AI-Generated Change` footer with the model name, intent, impact, and verification method.
 

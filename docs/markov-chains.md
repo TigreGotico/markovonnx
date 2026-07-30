@@ -1,6 +1,6 @@
 # Markov Chains
 
-`MarkovChain` — `markovonnx/markov.py:13`
+`MarkovChain` (`markovonnx/markov.py:13`)
 
 N-gram Markov chain with sparse internal storage, interpolated backoff, Kneser-Ney smoothing, and dense/sparse ONNX export.
 
@@ -66,14 +66,14 @@ mc.fit(corpus)
 
 ## Training
 
-### In-Memory: `fit(sequences)` — `markov.py:90`
+### In-Memory: `fit(sequences)` (`markov.py:90`)
 
 ```python
 mc = MarkovChain(order=2, vocab=vocab, kneser_ney=True, backoff=True)
 mc.fit(corpus)  # List[List[str]]
 ```
 
-### Streaming: `fit_streaming(path, tokenize_fn, max_lines=0)` — `markov.py:110`
+### Streaming: `fit_streaming(path, tokenize_fn, max_lines=0)` (`markov.py:110`)
 
 ```python
 mc.fit_streaming("corpus.txt", tokenize_fn=char_tokenize)
@@ -83,7 +83,7 @@ Reads the corpus line-by-line via `corpus_iter`. Never loads the full file.
 
 ## Sampling
 
-### `sample(context, temperature=1.0) -> token` — `markov.py:218`
+### `sample(context, temperature=1.0) -> token` (`markov.py:218`)
 
 Samples the next token from the learned distribution. Uses backoff for unseen contexts if enabled.
 
@@ -97,7 +97,7 @@ next_token = mc.sample(["t", "h", "e"], temperature=0.7)
 
 ## Perplexity
 
-### `perplexity(sequences) -> float` — `markov.py:234`
+### `perplexity(sequences) -> float` (`markov.py:234`)
 
 Computes perplexity over evaluation sequences. Uses backoff-aware probabilities. Lower values indicate a better fit.
 
@@ -107,7 +107,7 @@ ppx = mc.perplexity(eval_sequences)
 
 ## Dense Matrix
 
-### `dense_matrix() -> np.ndarray` — `markov.py:139`
+### `dense_matrix() -> np.ndarray` (`markov.py:139`)
 
 Builds the full transition matrix `T[V^order, V]` with smoothing applied (Laplace or Kneser-Ney). Each row sums to 1.0. Called internally by `export_markov_onnx`.
 
@@ -125,3 +125,6 @@ Raises `MemoryError` if the matrix would exceed 2 GB. Use `export_markov_sparse_
 | `_kn_discount` | `float` | Estimated Kneser-Ney discount (after training) |
 | `_lower` | `MarkovChain` or `None` | Lower-order backoff model |
 | `_counts` | `Dict[int, np.ndarray]` | Sparse context→count-vector storage |
+
+---
+[← Vocabulary](vocabulary.md) · [Home](index.md) · [Hidden Markov Models →](hmm.md)

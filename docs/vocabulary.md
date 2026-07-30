@@ -1,6 +1,6 @@
 # Vocabulary
 
-`Vocabulary` — `markovonnx/vocabulary.py:7`
+`Vocabulary` (`markovonnx/vocabulary.py:7`)
 
 Maps tokens (strings or ints) to integer IDs and back. Supports frequency-based pruning via `max_vocab`.
 
@@ -21,11 +21,11 @@ vocab.build_from_sequences(corpus)
 
 ## Building
 
-### `build_from_sequences(sequences: List[List]) -> None` — `vocabulary.py:24`
+### `build_from_sequences(sequences: List[List]) -> None` (`vocabulary.py:24`)
 
 Counts all tokens in memory, then finalises the mapping. Tokens are ordered by descending frequency; `<UNK>` is always at index 0.
 
-### `build_streaming(path, tokenize_fn, max_lines=0) -> None` — `vocabulary.py:30`
+### `build_streaming(path, tokenize_fn, max_lines=0) -> None` (`vocabulary.py:30`)
 
 Streams a corpus file to count tokens without loading everything into RAM. Requires a `tokenize_fn` callable.
 
@@ -38,11 +38,11 @@ vocab.build_streaming("large_corpus.txt", tokenize_fn=char_tokenize)
 
 ## Encoding and Decoding
 
-### `encode(tokens: List) -> List[int]` — `vocabulary.py:56`
+### `encode(tokens: List) -> List[int]` (`vocabulary.py:56`)
 
 Maps tokens to integer IDs. Unknown tokens map to the `<UNK>` ID (always 0).
 
-### `decode(ids: List[int]) -> List` — `vocabulary.py:61`
+### `decode(ids: List[int]) -> List` (`vocabulary.py:61`)
 
 Maps integer IDs back to tokens.
 
@@ -73,3 +73,6 @@ When `max_vocab > 0`, only the top `max_vocab` tokens are kept (plus `<UNK>`), s
 ## Memory Considerations
 
 The vocabulary itself is lightweight. The memory-intensive component is the transition matrix built during ONNX export, which scales as `V^order × V × 4` bytes (float32). For `V=324, order=2`: ~130 MB.
+
+---
+[← Tokenization](tokenization.md) · [Home](index.md) · [Markov Chains →](markov-chains.md)
