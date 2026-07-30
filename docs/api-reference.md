@@ -4,7 +4,7 @@ Complete public API with signatures and source locations.
 
 ## markovonnx.config
 
-### `MarkovConfig` — `config.py:14`
+### `MarkovConfig` (`config.py:14`)
 
 ```python
 @dataclasses.dataclass
@@ -40,12 +40,15 @@ class MarkovConfig:
 
 ## markovonnx.tokenizers
 
-### `char_tokenize(line: str) -> List[str]` — `tokenizers.py:7`
-### `word_tokenize(line: str) -> List[str]` — `tokenizers.py:12`
-### `corpus_iter(path: str, tokenize_fn: Callable, max_lines: int = 0) -> Iterator[List]` — `tokenizers.py:17`
-### `get_tokenize_fn(mode: str, bpe_tokenizer: Optional[SubwordTokenizer] = None) -> Callable` — `tokenizers.py:105`
+### `char_tokenize(line: str) -> List[str]` (`tokenizers.py:7`)
 
-### `SubwordTokenizer` — `tokenizers.py:40`
+### `word_tokenize(line: str) -> List[str]` (`tokenizers.py:12`)
+
+### `corpus_iter(path: str, tokenize_fn: Callable, max_lines: int = 0) -> Iterator[List]` (`tokenizers.py:17`)
+
+### `get_tokenize_fn(mode: str, bpe_tokenizer: Optional[SubwordTokenizer] = None) -> Callable` (`tokenizers.py:105`)
+
+### `SubwordTokenizer` (`tokenizers.py:40`)
 
 ```python
 class SubwordTokenizer:
@@ -67,7 +70,7 @@ class SubwordTokenizer:
 
 ## markovonnx.vocabulary
 
-### `Vocabulary` — `vocabulary.py:7`
+### `Vocabulary` (`vocabulary.py:7`)
 
 ```python
 class Vocabulary:
@@ -88,7 +91,7 @@ class Vocabulary:
 
 ## markovonnx.markov
 
-### `MarkovChain` — `markov.py:13`
+### `MarkovChain` (`markov.py:13`)
 
 ```python
 class MarkovChain:
@@ -111,7 +114,7 @@ class MarkovChain:
 
 ## markovonnx.hmm
 
-### `HiddenMarkovModel` — `hmm.py:10`
+### `HiddenMarkovModel` (`hmm.py:10`)
 
 ```python
 class HiddenMarkovModel:
@@ -135,16 +138,19 @@ class HiddenMarkovModel:
 
 ## markovonnx.onnx_export
 
-### `export_markov_onnx(mc: MarkovChain, path: str) -> None` — `onnx_export.py:15`
-### `export_markov_sparse_onnx(mc: MarkovChain, path: str) -> None` — `onnx_export.py:82`
-### `export_hmm_onnx(hmm: HiddenMarkovModel, path: str) -> None` — `onnx_export.py:222`
-### `quantize_model(onnx_path: str, quant_path: str) -> Optional[str]` — `onnx_export.py:266`
+### `export_markov_onnx(mc: MarkovChain, path: str) -> None` (`onnx_export.py:15`)
+
+### `export_markov_sparse_onnx(mc: MarkovChain, path: str) -> None` (`onnx_export.py:82`)
+
+### `export_hmm_onnx(hmm: HiddenMarkovModel, path: str) -> None` (`onnx_export.py:222`)
+
+### `quantize_model(onnx_path: str, quant_path: str) -> Optional[str]` (`onnx_export.py:266`)
 
 ---
 
 ## markovonnx.onnx_runtime
 
-### `MarkovONNXRuntime` — `onnx_runtime.py:13`
+### `MarkovONNXRuntime` (`onnx_runtime.py:13`)
 
 ```python
 class MarkovONNXRuntime:
@@ -162,7 +168,7 @@ class MarkovONNXRuntime:
     def argmax(self, context: List) -> object: ...
 ```
 
-### `HMMONNXRuntime` — `onnx_runtime.py:71`
+### `HMMONNXRuntime` (`onnx_runtime.py:71`)
 
 ```python
 class HMMONNXRuntime:
@@ -177,7 +183,7 @@ class HMMONNXRuntime:
 
 ## markovonnx.generate
 
-### `generate_markov(...)` — `generate.py:9`
+### `generate_markov(...)` (`generate.py:9`)
 
 ```python
 def generate_markov(
@@ -195,13 +201,17 @@ def generate_markov(
 
 ## markovonnx.archive
 
-### `save_markov_archive(model, archive_path: str) -> str` — `archive.py:23`
-### `load_markov_archive(archive_path: str) -> dict` — `archive.py:70`
+### `save_markov_archive(model, archive_path: str) -> str` (`archive.py:23`)
+
+### `load_markov_archive(archive_path: str) -> dict` (`archive.py:70`)
 
 ---
 
 ## markovonnx.cli
 
-### `main() -> None` — `cli.py:68`
+### `main() -> None` (`cli.py:68`)
 
 Entry point for `markovonnx` console script. Subcommands: `train`, `generate`, `info`.
+
+---
+[← OVOS Integration](ovos-integration.md) · [Home](index.md) · [Architecture →](architecture.md)
