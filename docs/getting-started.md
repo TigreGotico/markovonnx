@@ -138,3 +138,6 @@ markovonnx train corpus.txt -o model.markov --order 3 --backoff
 markovonnx generate model.markov --seed "the" --length 100
 markovonnx info model.markov
 ```
+
+---
+[← When to Use](guide.md) · [Home](index.md) · [Configuration →](configuration.md)

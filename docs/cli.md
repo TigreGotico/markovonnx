@@ -26,6 +26,9 @@ markovonnx train corpus.txt -o model.markov --mode char --order 3
 | `-o, --output` | `model.markov` | Output `.markov` archive path |
 | `--mode` | `char` | Tokenization: `char` or `word` |
 | `--order` | `3` | N-gram order |
+
+| Flag | Default | Description |
+|------|---------|-------------|
 | `--smoothing` | `1e-5` | Laplace smoothing alpha |
 | `--max-vocab` | `0` | Max vocabulary size (0=unlimited) |
 | `--max-lines` | `0` | Max corpus lines (0=unlimited) |
@@ -85,3 +88,6 @@ markovonnx info nursery.markov
 # Generate text
 markovonnx generate nursery.markov --seed "the" --length 200 --temperature 0.5
 ```
+
+---
+[← Portable Archives](archive.md) · [Home](index.md) · [OVOS Integration →](ovos-integration.md)
