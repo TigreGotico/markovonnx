@@ -68,8 +68,12 @@ def main() -> None:
     from markovonnx import HiddenMarkovModel, Vocabulary
     import time
 
+    # Hold out the last 10%: the vocabulary and the fit see only the rest
+    split = int(len(word_seqs) * 0.9)
+    train_words, train_tags = word_seqs[:split], tag_seqs[:split]
+
     obs_vocab = Vocabulary()
-    obs_vocab.build_from_sequences(word_seqs)
+    obs_vocab.build_from_sequences(train_words)
     print(f"  Vocabulary: {obs_vocab.size} words")
 
     all_tags = set()
@@ -78,11 +82,10 @@ def main() -> None:
 
     t0 = time.time()
     hmm = HiddenMarkovModel(n_states=len(all_tags) + 1, obs_vocab=obs_vocab)
-    hmm.fit_supervised(word_seqs, tag_seqs)
+    hmm.fit_supervised(train_words, train_tags)
     print(f"  Trained in {time.time() - t0:.2f}s")
 
-    # Evaluate on last 10% as held-out
-    split = int(len(word_seqs) * 0.9)
+    # Evaluate on the held-out 10%
     correct = total = 0
     for words, gold_tags in zip(word_seqs[split:], tag_seqs[split:]):
         pred_tags = hmm.viterbi(words)

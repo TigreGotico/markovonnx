@@ -3,14 +3,14 @@
     "script": "scripts/train_pos_tagger.py",
     "corpus": "brown",
     "split": "held-out last 10% of sentences",
-    "correct": 92684,
+    "correct": 90034,
     "total": 95442
   },
   "pos_treebank": {
     "script": "scripts/train_pos_tagger.py",
     "corpus": "treebank",
     "split": "held-out last 10% of sentences",
-    "correct": 9559,
+    "correct": 8936,
     "total": 9825
   },
   "quantize": {

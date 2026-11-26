@@ -22,7 +22,7 @@ Most Markov chain implementations exist as teaching tools or one-off scripts. ma
 |----------|-----|---------|
 | **Language identification** | Character n-gram perplexity is the classic approach: fast, accurate, tiny models | Example 10, `MarkovLangDetector` |
 | **Intent classification (small data)** | 5-50 examples per class is enough for a word-level perplexity ensemble | Example 11, OVOS plugin `ovos-markov-pipeline-plugin` |
-| **POS tagging** | HMM Viterbi is the textbook solution, reaching 97.3% accuracy on the NLTK Penn Treebank sample | Example 12, `MarkovPosTagger` |
+| **POS tagging** | HMM Viterbi is the textbook solution, reaching 91.0% accuracy on the NLTK Penn Treebank sample | Example 12, `MarkovPosTagger` |
 | **Sequence tagging (NER, BIO)** | Supervised HMM works well for entity extraction with labeled data | Example 3, `SlotExtractor` |
 | **Text generation (creative)** | Character-level Markov chains produce entertaining, style-mimicking text | Examples 1-2 |
 | **G2P (grapheme-to-phoneme)** | HMM maps character sequences to phoneme sequences | Example 15, `MarkovG2P` |
@@ -51,7 +51,7 @@ Most Markov chain implementations exist as teaching tools or one-off scripts. ma
 | Memory at inference | Model size + trivial overhead |
 | Accuracy (lang detect) | 67% (10/15) on 5 languages in `examples/10_language_identifier.py` |
 | Accuracy (intent, 8 classes) | 21.9% with order 1 and Kneser-Ney on the synthetic data of `examples/11_intent_classifier_benchmark.py` |
-| Accuracy (POS tagging) | 97.1% on Brown and 97.3% on the NLTK Penn Treebank sample, held-out 10%, supervised HMM |
+| Accuracy (POS tagging) | 94.3% on Brown and 91.0% on the NLTK Penn Treebank sample, held-out 10%, supervised HMM |
 
 ## Recommendations
 

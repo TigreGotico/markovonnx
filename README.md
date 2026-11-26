@@ -17,7 +17,7 @@ markovonnx trains classical n-gram Markov chains and Hidden Markov Models and ex
 ### What It Is Good At
 
 - **Language detection**: character n-gram perplexity is a standard, competitive approach for this task.
-- **POS tagging**: HMM Viterbi decoding reaches 97.1% accuracy on a held-out 10% of the Brown corpus.
+- **POS tagging**: HMM Viterbi decoding reaches 94.3% accuracy on a held-out 10% of the Brown corpus.
 - **Anomaly detection**: perplexity is a reasonable score for "does this line look normal".
 - **Providing a baseline**: every benchmark needs a lower bound to compare against.
 
@@ -92,7 +92,7 @@ markovonnx provides 7 native [OpenVoiceOS](https://openvoiceos.org) plugins thro
 |--------|-----------------|---------------|
 | `MarkovUtteranceTransformer` | `opm.transformer.text` | STT rescoring with domain LM |
 | `MarkovLangDetector` | `opm.lang.detect` | Language detection |
-| `MarkovPosTagger` | `opm.postag` | POS tagging (97.1% on Brown corpus) |
+| `MarkovPosTagger` | `opm.postag` | POS tagging (94.3% on Brown corpus) |
 | `MarkovKeywordExtractor` | `opm.keywords` | Keyword extraction |
 | `MarkovSegmenter` | `opm.segmentation` | Sentence boundary detection |
 | `MarkovG2P` | `opm.g2p` | Grapheme-to-phoneme |
@@ -107,7 +107,7 @@ See [docs/ovos-integration.md](docs/ovos-integration.md) for configuration, trai
 ## Training Scripts
 
 ```bash
-# POS tagger from NLTK Brown corpus (97.1% accuracy)
+# POS tagger from NLTK Brown corpus (94.3% accuracy)
 python scripts/train_pos_tagger.py --corpus brown -o models/en_pos.json
 
 # Language detection from NLTK UDHR corpus
