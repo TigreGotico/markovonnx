@@ -26,7 +26,7 @@ The OVOS intent pipeline plugin is a separate package,
 [`ovos-markov-pipeline-plugin`](https://github.com/TigreGotico/ovos-markov-pipeline-plugin)
 (`opm.pipeline` entry point). Install and configure it from that repository.
 
-It builds on the same perplexity-classifier pattern markovonnx provides — see
+It builds on the same perplexity-classifier pattern markovonnx provides. See
 [guide.md](guide.md) for using `MarkovChain` as a classifier directly.
 
 ---
@@ -57,9 +57,9 @@ Improves STT accuracy by rescoring utterances against a domain language model tr
 
 **Auto-trains** by listening on `padatious:register_intent` and `register_vocab` bus messages. Rebuilds the domain LM when `mycroft.skills.trained` fires.
 
-**Approach A — N-best rescoring**: When STT provides multiple hypotheses, reorders by `(1-α)*position_score + α/perplexity`. Higher `alpha` = more LM influence.
+**Approach A, N-best rescoring**: when STT provides multiple hypotheses, reorders them by `(1-α)*position_score + α/perplexity`. A higher `alpha` means more LM influence.
 
-**Approach B — Word correction**: For single-hypothesis STT, checks if replacing any non-domain word with a phonetically similar domain word (edit distance ≤ 2) reduces perplexity significantly.
+**Approach B, word correction**: for single-hypothesis STT, checks whether replacing a non-domain word with a phonetically similar domain word (edit distance ≤ 2) reduces perplexity significantly.
 
 ### Recommendations
 
@@ -256,7 +256,7 @@ print(g2p.get_ipa("cat", "en"))  # ["K", "AE", "T"]
 
 **Entry point**: `opm.agents.chat` → `ovos-markov-chat`
 
-Text generation by Markov chain sampling trained on a persona's corpus. Produces stylistically consistent but not semantically coherent responses — creative and entertaining.
+Text generation by Markov chain sampling trained on a persona's corpus. Responses stay stylistically consistent but are not semantically coherent.
 
 ### Configuration
 
@@ -304,3 +304,6 @@ engine.train_from_samples(["darkness falls across the land", ...])
 - Lower temperature (0.3-0.5) for safer, more repetitive text
 - Higher temperature (0.8-1.0) for more creative, surprising output
 - Word mode for coherent phrases, char mode for creative neologisms
+
+---
+[← CLI](cli.md) · [Home](index.md) · [API Reference →](api-reference.md)

@@ -1,6 +1,6 @@
 # Configuration
 
-`MarkovConfig` — `markovonnx/config.py:14`
+`MarkovConfig` (`markovonnx/config.py:14`)
 
 A dataclass that centralises all training and export parameters. Every field has a matching `MARKOV_*` environment variable fallback.
 
@@ -49,3 +49,6 @@ cfg = MarkovConfig.from_env()
 `MarkovConfig.from_env()` reads each `MARKOV_*` variable. If the variable is empty or unset, the dataclass default is used. The `_env` helper (`config.py:8`) casts the string value to the target type.
 
 For `MARKOV_QUANTIZE`, any of `"1"`, `"true"`, `"yes"` enables quantization; anything else disables it.
+
+---
+[← Getting Started](getting-started.md) · [Home](index.md) · [Tokenization →](tokenization.md)

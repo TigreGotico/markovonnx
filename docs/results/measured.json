@@ -1,0 +1,36 @@
+{
+  "pos_brown": {
+    "script": "scripts/train_pos_tagger.py",
+    "corpus": "brown",
+    "split": "held-out last 10% of sentences",
+    "correct": 90034,
+    "total": 95442
+  },
+  "pos_treebank": {
+    "script": "scripts/train_pos_tagger.py",
+    "corpus": "treebank",
+    "split": "held-out last 10% of sentences",
+    "correct": 8936,
+    "total": 9825
+  },
+  "quantize": {
+    "script": "examples/07_quantization_benchmark.py",
+    "full_kb": 69.2,
+    "int8_kb": 17.9
+  },
+  "lang_detect": {
+    "script": "examples/10_language_identifier.py",
+    "correct": 10,
+    "total": 15
+  },
+  "intent": {
+    "script": "examples/11_intent_classifier_benchmark.py",
+    "data": "synthetic, 32 test utterances",
+    "accuracy_pct": {
+      "order=1, Laplace": 3.1,
+      "order=1, Kneser-Ney": 21.9,
+      "order=2, Laplace": 6.2,
+      "order=2, KN+backoff": 9.4
+    }
+  }
+}

@@ -104,7 +104,7 @@ if result:
     print(f"Quantized model saved to {result}")
 ```
 
-Typically achieves ~75% file size reduction with minimal accuracy loss.
+In `examples/07_quantization_benchmark.py`, INT8 quantization makes the model 74.1% smaller (69.2 KB to 17.9 KB).
 
 ## Kneser-Ney Smoothing + Backoff
 
@@ -115,7 +115,7 @@ mc = MarkovChain(order=2, vocab=vocab, kneser_ney=True, backoff=True)
 mc.fit(corpus)
 ```
 
-Kneser-Ney typically gives 10-15% better accuracy than Laplace. Backoff falls back to shorter contexts for unseen n-grams.
+In `examples/11_intent_classifier_benchmark.py` (synthetic data, 32 test utterances), order 1 with Kneser-Ney gets 21.9% accuracy and order 1 with Laplace gets 3.1%. Backoff falls back to shorter contexts for unseen n-grams.
 
 ## Save / Load Archives
 
@@ -138,3 +138,6 @@ markovonnx train corpus.txt -o model.markov --order 3 --backoff
 markovonnx generate model.markov --seed "the" --length 100
 markovonnx info model.markov
 ```
+
+---
+[← When to Use](guide.md) · [Home](index.md) · [Configuration →](configuration.md)

@@ -1,10 +1,10 @@
 # ONNX Inference
 
-Runtime wrappers for fast inference via ONNX Runtime — `markovonnx/onnx_runtime.py`.
+Runtime wrappers for fast inference through ONNX Runtime (`markovonnx/onnx_runtime.py`).
 
 ## MarkovONNXRuntime
 
-`MarkovONNXRuntime` — `onnx_runtime.py:13`
+`MarkovONNXRuntime` (`onnx_runtime.py:13`)
 
 ### Constructor
 
@@ -16,7 +16,7 @@ Loads an ONNX session with automatic provider selection (CUDA if available, else
 
 ### Alternative Constructor
 
-#### `MarkovONNXRuntime.from_file(onnx_path)` — `onnx_runtime.py:47`
+#### `MarkovONNXRuntime.from_file(onnx_path)` (`onnx_runtime.py:47`)
 
 Load from an ONNX file without providing vocab/order separately. Reconstructs the vocabulary from metadata embedded in the ONNX file.
 
@@ -27,7 +27,7 @@ print(rt.order, rt.vocab.size)
 
 ### Methods
 
-#### `predict_probs(context) -> np.ndarray` — `onnx_runtime.py:35`
+#### `predict_probs(context) -> np.ndarray` (`onnx_runtime.py:35`)
 
 Returns the full probability distribution over the vocabulary for a given context.
 
@@ -38,7 +38,7 @@ print(probs.sum())  # ~1.0
 
 The context is truncated to the last `order` tokens automatically. Raises `ValueError` if context has fewer tokens than `order`.
 
-#### `predict_probs_batch(contexts) -> np.ndarray` — `onnx_runtime.py:99`
+#### `predict_probs_batch(contexts) -> np.ndarray` (`onnx_runtime.py:99`)
 
 Process multiple contexts in one call. Returns shape `(N, vocab_size)`.
 
@@ -47,7 +47,7 @@ batch = rt.predict_probs_batch([["t", "h"], ["h", "e"]])
 print(batch.shape)  # (2, vocab_size)
 ```
 
-#### `sample(context, temperature=1.0) -> token` — `onnx_runtime.py:113`
+#### `sample(context, temperature=1.0) -> token` (`onnx_runtime.py:113`)
 
 Samples the next token probabilistically.
 
@@ -57,7 +57,7 @@ token = rt.sample(["t", "h"], temperature=0.5)
 
 When `temperature != 1.0`, logits are rescaled before converting to probabilities.
 
-#### `argmax(context) -> token` — `onnx_runtime.py:60`
+#### `argmax(context) -> token` (`onnx_runtime.py:60`)
 
 Returns the most likely next token (deterministic, greedy).
 
@@ -76,7 +76,7 @@ token = rt.argmax(["t", "h"])  # always returns the same token
 
 ## HMMONNXRuntime
 
-`HMMONNXRuntime` — `onnx_runtime.py:71`
+`HMMONNXRuntime` (`onnx_runtime.py:71`)
 
 ### Constructor
 
@@ -88,7 +88,7 @@ Loads an ONNX session. Requires the original `HiddenMarkovModel` for `pi` (initi
 
 ### Methods
 
-#### `decode(obs_seq) -> List[str]` — `onnx_runtime.py:85`
+#### `decode(obs_seq) -> List[str]` (`onnx_runtime.py:85`)
 
 Greedy forward-pass decoding over a full observation sequence.
 
@@ -108,3 +108,6 @@ ONNX Runtime typically achieves 3-4x speedup over the pure Python model for Mark
 2. Graph-level optimisations (operator fusion)
 3. Multi-threaded execution
 4. Optional CUDA acceleration
+
+---
+[← ONNX Export](onnx-export.md) · [Home](index.md) · [Text Generation →](text-generation.md)

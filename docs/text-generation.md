@@ -1,6 +1,6 @@
 # Text Generation
 
-`generate_markov` — `markovonnx/generate.py:9`
+`generate_markov` (`markovonnx/generate.py:9`)
 
 Auto-regressive text generation using a `MarkovONNXRuntime`.
 
@@ -74,7 +74,10 @@ text = generate_markov(rt, "", 50, mode="bpe", order=2, bpe_tokenizer=bpe)
 
 | Temperature | Effect |
 |-------------|--------|
-| 0.1–0.3 | Nearly deterministic, repetitive |
-| 0.5–0.7 | Balanced variety and coherence |
+| 0.1-0.3 | Nearly deterministic, repetitive |
+| 0.5-0.7 | Balanced variety and coherence |
 | 1.0 | True learned distribution |
-| 1.5–2.0 | High randomness, less coherent |
+| 1.5-2.0 | High randomness, less coherent |
+
+---
+[← ONNX Inference](onnx-inference.md) · [Home](index.md) · [Portable Archives →](archive.md)
