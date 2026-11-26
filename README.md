@@ -17,7 +17,7 @@ markovonnx trains classical n-gram Markov chains and Hidden Markov Models and ex
 ### What It Is Good At
 
 - **Language detection**: character n-gram perplexity is a standard, competitive approach for this task.
-- **POS tagging**: HMM Viterbi decoding reaches 97.5% accuracy on the Brown corpus.
+- **POS tagging**: HMM Viterbi decoding reaches 97.1% accuracy on a held-out 10% of the Brown corpus.
 - **Anomaly detection**: perplexity is a reasonable score for "does this line look normal".
 - **Providing a baseline**: every benchmark needs a lower bound to compare against.
 
@@ -55,7 +55,7 @@ mc.fit(corpus)
 # Export to ONNX
 export_markov_onnx(mc, "model.onnx")
 
-# Inference (3.5x faster than Python)
+# Inference
 rt = MarkovONNXRuntime("model.onnx", vocab, order=2)
 probs = rt.predict_probs(["the", "cat"])
 ```
@@ -66,7 +66,7 @@ probs = rt.predict_probs(["the", "cat"])
 |---------|-------------|
 | **Markov Chains** | N-gram models with sparse storage, Modified Kneser-Ney, interpolated backoff |
 | **Hidden Markov Models** | Supervised MLE and log-space Baum-Welch, vectorized Viterbi |
-| **ONNX Export** | Dense and sparse graphs, INT8 quantization, ~75% compression |
+| **ONNX Export** | Dense and sparse graphs, INT8 quantization (74.1% smaller in the quantization example) |
 | **Pretrained Models** | save/load for MarkovChain and HMM, NLTK training scripts |
 | **CLI** | `markovonnx train/generate/info` |
 | **OVOS Plugins** | 8 native OPM entry points |
@@ -92,7 +92,7 @@ markovonnx provides 7 native [OpenVoiceOS](https://openvoiceos.org) plugins thro
 |--------|-----------------|---------------|
 | `MarkovUtteranceTransformer` | `opm.transformer.text` | STT rescoring with domain LM |
 | `MarkovLangDetector` | `opm.lang.detect` | Language detection |
-| `MarkovPosTagger` | `opm.postag` | POS tagging (97.5% on Brown corpus) |
+| `MarkovPosTagger` | `opm.postag` | POS tagging (97.1% on Brown corpus) |
 | `MarkovKeywordExtractor` | `opm.keywords` | Keyword extraction |
 | `MarkovSegmenter` | `opm.segmentation` | Sentence boundary detection |
 | `MarkovG2P` | `opm.g2p` | Grapheme-to-phoneme |
@@ -107,7 +107,7 @@ See [docs/ovos-integration.md](docs/ovos-integration.md) for configuration, trai
 ## Training Scripts
 
 ```bash
-# POS tagger from NLTK Brown corpus (97.5% accuracy)
+# POS tagger from NLTK Brown corpus (97.1% accuracy)
 python scripts/train_pos_tagger.py --corpus brown -o models/en_pos.json
 
 # Language detection from NLTK UDHR corpus

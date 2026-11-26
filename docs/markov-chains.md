@@ -52,7 +52,7 @@ mc.fit(corpus)
 print(mc._kn_discount)  # e.g. 0.73
 ```
 
-Kneser-Ney typically gives **10-15% better accuracy** than Laplace on intent classification tasks.
+In `examples/11_intent_classifier_benchmark.py` (synthetic data, 32 test utterances), order 1 with Kneser-Ney gets 21.9% accuracy and order 1 with Laplace gets 3.1%.
 
 ### Interpolated Backoff
 

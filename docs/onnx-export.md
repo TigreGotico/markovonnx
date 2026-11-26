@@ -75,7 +75,7 @@ result = quantize_model("markov.onnx", "markov_int8.onnx")
 
 **Requires**: `onnxruntime.quantization` (install with `pip install onnxruntime-tools onnxconverter-common`).
 
-Typical compression: ~75% size reduction (e.g., 130 MB → 33 MB).
+In `examples/07_quantization_benchmark.py`, INT8 quantization makes the model 74.1% smaller (69.2 KB to 17.9 KB).
 
 ## Sparse Export
 
