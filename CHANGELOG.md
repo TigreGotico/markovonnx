@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2a2](https://github.com/TigreGotico/markovonnx/tree/1.0.2a2) (2026-11-26)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/1.0.2a1...1.0.2a2)
+
+**Merged pull requests:**
+
+- docs: quote measured numbers from a committed result file [\#19](https://github.com/TigreGotico/markovonnx/pull/19) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [1.0.2a1](https://github.com/TigreGotico/markovonnx/tree/1.0.2a1) (2026-07-30)
 
 [Full Changelog](https://github.com/TigreGotico/markovonnx/compare/1.0.1...1.0.2a1)
@@ -7,6 +15,52 @@
 **Merged pull requests:**
 
 - docs: rewrite README in Simplified Technical English [\#17](https://github.com/TigreGotico/markovonnx/pull/17) ([JarbasAl](https://github.com/JarbasAl))
+
+## [1.0.1](https://github.com/TigreGotico/markovonnx/tree/1.0.1) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/1.0.1a1...1.0.1)
+
+## [1.0.1a1](https://github.com/TigreGotico/markovonnx/tree/1.0.1a1) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.1a3...1.0.1a1)
+
+**Merged pull requests:**
+
+- fix: repair the corrupted version file [\#14](https://github.com/TigreGotico/markovonnx/pull/14) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.0.1a3](https://github.com/TigreGotico/markovonnx/tree/0.0.1a3) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.1a2...0.0.1a3)
+
+**Merged pull requests:**
+
+- ci: regenerate workflows from standard templates [\#12](https://github.com/TigreGotico/markovonnx/pull/12) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.0.1a2](https://github.com/TigreGotico/markovonnx/tree/0.0.1a2) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.1a1...0.0.1a2)
+
+**Merged pull requests:**
+
+- ci: pass release secrets explicitly [\#8](https://github.com/TigreGotico/markovonnx/pull/8) ([JarbasAl](https://github.com/JarbasAl))
+
+## [0.0.1a1](https://github.com/TigreGotico/markovonnx/tree/0.0.1a1) (2026-05-21)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/0.0.0...0.0.1a1)
+
+**Breaking changes:**
+
+- refactor!: drop the intent pipeline plugin [\#3](https://github.com/TigreGotico/markovonnx/pull/3) ([JarbasAl](https://github.com/JarbasAl))
+
+**Merged pull requests:**
+
+- chore: remove internal audit and maintenance notes [\#6](https://github.com/TigreGotico/markovonnx/pull/6) ([JarbasAl](https://github.com/JarbasAl))
+- ci: add standard GitHub Actions workflows [\#5](https://github.com/TigreGotico/markovonnx/pull/5) ([JarbasAl](https://github.com/JarbasAl))
+- chore: Configure Renovate [\#1](https://github.com/TigreGotico/markovonnx/pull/1) ([renovate[bot]](https://github.com/apps/renovate))
+
+## [0.0.0](https://github.com/TigreGotico/markovonnx/tree/0.0.0) (2026-03-19)
+
+[Full Changelog](https://github.com/TigreGotico/markovonnx/compare/4477730f8f81f14a17239d201f51632df74a30b2...0.0.0)
 
 
 
